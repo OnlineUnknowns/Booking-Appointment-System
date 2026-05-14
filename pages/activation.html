@@ -318,6 +318,11 @@
 
 <script>
   (function () {
+    var VALID_KEY    = 'ENTERPRISE2025';
+    var BTN_DEFAULT  = 'Activate';
+    var BTN_SUCCESS  = 'Access Granted ✓';
+    var BTN_FAIL     = 'Invalid License';
+
     /* ── GSAP card entrance ─────────────────────── */
     if (typeof gsap !== 'undefined') {
       gsap.fromTo('#act-card',
@@ -332,11 +337,13 @@
     }
 
     /* ── Click demo key to auto-fill input ─────── */
-    var hint = document.getElementById('demo-key-hint');
+    var hint  = document.getElementById('demo-key-hint');
     var input = document.getElementById('licenseKey');
+    var btn   = document.getElementById('activateBtn');
+
     if (hint && input) {
       hint.addEventListener('click', function () {
-        input.value = 'ENTERPRISE2025';
+        input.value = VALID_KEY;
         input.focus();
         if (typeof gsap !== 'undefined') {
           gsap.fromTo(hint,
@@ -355,6 +362,87 @@
       });
       input.addEventListener('blur', function () {
         if (icon) icon.style.color = '';
+      });
+    }
+
+    /* ── Activation logic ───────────────────────── */
+    function getBtnLabel() {
+      /* Return only the text node content, ignoring the shimmer child div */
+      var nodes = btn.childNodes;
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].nodeType === Node.TEXT_NODE) {
+          return nodes[i];
+        }
+      }
+      return null;
+    }
+
+    function setButtonText(text) {
+      var textNode = getBtnLabel();
+      if (textNode) {
+        textNode.nodeValue = text;
+      } else {
+        /* Fallback: append a text node if somehow missing */
+        btn.appendChild(document.createTextNode(text));
+      }
+    }
+
+    function activate() {
+      if (!btn || !input) return;
+
+      var key = input.value.trim().toUpperCase();
+
+      if (key === VALID_KEY) {
+        /* ── SUCCESS ── */
+        localStorage.setItem('demo_license', 'active');
+
+        btn.disabled = true;
+        btn.style.background = 'linear-gradient(135deg, #00C896, #00A878)';
+        btn.style.boxShadow   = '0 0 32px rgba(0,200,150,0.45)';
+        setButtonText(BTN_SUCCESS);
+
+        setTimeout(function () {
+          window.location.href = './dashboard.html';
+        }, 800);
+
+      } else {
+        /* ── FAILURE ── */
+        btn.disabled = true;
+        btn.style.background = 'linear-gradient(135deg, #FF4D6A, #C0392B)';
+        btn.style.boxShadow   = '0 0 28px rgba(255,77,106,0.45)';
+        setButtonText(BTN_FAIL);
+
+        /* Shake the card for visual feedback */
+        if (typeof gsap !== 'undefined') {
+          gsap.fromTo('#act-card',
+            { x: 0 },
+            { x: 10, duration: 0.07, ease: 'power1.inOut',
+              yoyo: true, repeat: 5,
+              onComplete: function () {
+                gsap.set('#act-card', { x: 0 });
+              }
+            }
+          );
+        }
+
+        setTimeout(function () {
+          btn.disabled = false;
+          btn.style.background = '';
+          btn.style.boxShadow  = '';
+          setButtonText(BTN_DEFAULT);
+        }, 1500);
+      }
+    }
+
+    /* ── Button click ───────────────────────────── */
+    if (btn) {
+      btn.addEventListener('click', activate);
+    }
+
+    /* ── Enter key ──────────────────────────────── */
+    if (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') activate();
       });
     }
   })();
