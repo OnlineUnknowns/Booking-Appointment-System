@@ -454,76 +454,103 @@
     </main>
 </div>
 
-<!-- ─── External scripts (unchanged) ──────────── -->
-<script src="scripts/main.js"></script>
-<script src="scripts/api.js"></script>
-<script src="scripts/ui_helpers.js"></script>
-<script src="animations/gsap_animations.js"></script>
+<!-- ─── External scripts disabled on static deployment ───────────── -->
+<!-- <script src="scripts/main.js"></script>       -->
+<!-- <script src="scripts/api.js"></script>         -->
+<!-- <script src="scripts/ui_helpers.js"></script>  -->
+<!-- <script src="animations/gsap_animations.js"></script> -->
 
 <script>
-    // ─── Activation flow ──────────────────────────────
-    window.onload = async () => {
-        const activated = await eel.check_activation()();
-        if (activated) {
-            document.getElementById('activationOverlay').style.display = 'none';
-            loadPage('dashboard');
-        } else {
-            document.getElementById('activationOverlay').style.display = 'flex';
+    // ─── Static activation flow (no Eel, no backend) ──
+    (function () {
+        var VALID_KEY = 'ENTERPRISE2025';
+        var REDIRECT  = './pages/activation.html';
+        var _done     = false;
+
+        function ready(fn) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', fn);
+            } else {
+                fn();
+            }
         }
-    };
 
-    document.getElementById('activateBtn').onclick = async () => {
-        const key = document.getElementById('licenseKey').value;
-        const ok  = await eel.activate_license(key)();
-        if (ok) {
-            gsap.to('#activationOverlay', { opacity: 0, duration: 0.4, onComplete: () => {
-                document.getElementById('activationOverlay').style.display = 'none';
-                loadPage('dashboard');
-            }});
-        } else {
-            gsap.fromTo('#activationOverlay .activation-modal',
-                { x: -8 }, { x: 0, duration: 0.4, ease: 'elastic.out(1,0.3)',
-                  repeat: 3, yoyo: true, onComplete: () => alert('Invalid license key') });
-        }
-    };
+        ready(function () {
 
-    // ─── Sidebar navigation ───────────────────────────
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.addEventListener('click', () => {
-            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            loadPage(item.dataset.page);
+            // Show overlay (already display:flex in CSS, but be explicit)
+            var overlay = document.getElementById('activationOverlay');
+            if (overlay) overlay.style.display = 'flex';
+
+            // Clone button to strip any listeners attached by external scripts
+            var oldBtn = document.getElementById('activateBtn');
+            if (!oldBtn) return;
+            var btn = oldBtn.cloneNode(true);
+            oldBtn.parentNode.replaceChild(btn, oldBtn);
+
+            var input = document.getElementById('licenseKey');
+
+            function activate() {
+                if (_done) return;
+                var key = (input ? input.value : '').trim().toUpperCase();
+
+                if (key === VALID_KEY) {
+                    _done = true;
+                    try { localStorage.setItem('demo_license', 'active'); } catch (e) {}
+                    btn.textContent = 'Access Granted ✓';
+                    btn.style.background = 'linear-gradient(135deg,#00C896,#00A878)';
+                    btn.style.boxShadow  = '0 0 32px rgba(0,200,150,0.4)';
+                    btn.disabled = true;
+                    if (typeof gsap !== 'undefined') {
+                        gsap.to('#activationOverlay', {
+                            opacity: 0, duration: 0.4,
+                            onComplete: function () {
+                                window.location.replace(REDIRECT);
+                            }
+                        });
+                    } else {
+                        setTimeout(function () {
+                            window.location.replace(REDIRECT);
+                        }, 800);
+                    }
+                } else {
+                    btn.textContent = 'Invalid License';
+                    btn.style.background = 'linear-gradient(135deg,#FF4D6A,#C0392B)';
+                    btn.style.boxShadow  = '0 0 28px rgba(255,77,106,0.4)';
+                    btn.disabled = true;
+                    if (typeof gsap !== 'undefined') {
+                        gsap.fromTo('#activationOverlay .activation-modal',
+                            { x: -8 },
+                            { x: 0, duration: 0.4, ease: 'elastic.out(1,0.3)', repeat: 3, yoyo: true }
+                        );
+                    }
+                    setTimeout(function () {
+                        btn.textContent = 'Activate License';
+                        btn.style.background = '';
+                        btn.style.boxShadow  = '';
+                        btn.disabled = false;
+                    }, 1500);
+                }
+            }
+
+            btn.addEventListener('click', activate);
+
+            if (input) {
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') activate();
+                });
+            }
+
+            // Demo hint autofill
+            var hint = document.querySelector('.demo-hint span');
+            if (hint && input) {
+                hint.style.cursor = 'pointer';
+                hint.addEventListener('click', function () {
+                    input.value = VALID_KEY;
+                    input.focus();
+                });
+            }
         });
-    });
-
-    // ─── Page loader ──────────────────────────────────
-    async function loadPage(pageName) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-
-        // Sync active state
-        document.querySelectorAll('.sidebar-item').forEach(i => {
-            i.classList.toggle('active', i.dataset.page === pageName);
-        });
-
-        const target = document.getElementById(`page-${pageName}`);
-        if (!target) return;
-        target.classList.add('active-page');
-
-        if      (pageName === 'dashboard')    await renderDashboard();
-        else if (pageName === 'accounts')     await renderAccounts();
-        else if (pageName === 'browser')      await renderBrowser();
-        else if (pageName === 'monitor')      await renderMonitor();
-        else if (pageName === 'slot_monitor') await renderSlotMonitor();
-        else if (pageName === 'logs')         await renderLogs();
-        else if (pageName === 'proxies')      await renderProxies();
-        else if (pageName === 'notifications')await renderNotifications();
-        else if (pageName === 'settings')     await renderSettings();
-
-        gsap.fromTo(target,
-            { opacity: 0, y: 18 },
-            { opacity: 1, y: 0, duration: 0.38, ease: 'power2.out' }
-        );
-    }
+    })();
 </script>
 </body>
 </html>
