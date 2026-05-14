@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Online Unknown — Session Watcher</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Tokens ─────────────────────────────────────── */
+    :root {
+      --bg:           #050c14;
+      --surface:      rgba(8, 20, 35, 0.78);
+      --border:       rgba(0, 230, 180, 0.14);
+      --border-active:rgba(0, 230, 180, 0.55);
+      --neon:         #00e6b4;
+      --neon-dim:     rgba(0, 230, 180, 0.18);
+      --neon-glow:    rgba(0, 230, 180, 0.35);
+      --amber:        #ffb340;
+      --red:          #ff4466;
+      --blue:         #38b2ff;
+      --text:         #cde0f0;
+      --text-muted:   rgba(180, 210, 235, 0.45);
+      --mono:         'Space Mono', monospace;
+      --sans:         'Syne', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow-x: hidden;
+    }
+
+    /* ── Background texture ─────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 0%,   rgba(0,100,80,.22) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 100%,  rgba(0,60,160,.18) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 40% at 60% 40%,   rgba(255,70,100,.07) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,230,180,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,230,180,.025) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+    }
+
+    /* ── Layout wrapper ─────────────────────────────── */
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ─────────────────────────────────────── */
+    header {
+      padding: 22px 32px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid rgba(0,230,180,.08);
+    }
+
+    .header-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border-active);
+      background: var(--neon-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.15rem;
+      box-shadow: 0 0 18px var(--neon-glow);
+      flex-shrink: 0;
+      animation: icon-breathe 3.5s ease-in-out infinite;
+    }
+    @keyframes icon-breathe {
+      0%,100% { box-shadow: 0 0 12px var(--neon-glow); }
+      50%      { box-shadow: 0 0 28px var(--neon-glow), 0 0 6px var(--neon); }
+    }
+
+    .header-titles { flex: 1; }
+    .header-titles h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      color: #fff;
+      line-height: 1;
+    }
+    .header-titles p {
+      font-family: var(--mono);
+      font-size: .67rem;
+      color: var(--text-muted);
+      letter-spacing: .1em;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Live indicator */
+    .live-badge {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 14px 5px 10px;
+      border-radius: 99px;
+      border: 1px solid rgba(0,230,180,.3);
+      background: rgba(0,230,180,.07);
+    }
+    .live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--neon);
+      box-shadow: 0 0 8px var(--neon);
+      animation: live-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .45; transform: scale(.7); }
+    }
+    .live-badge span {
+      font-family: var(--mono);
+      font-size: .68rem;
+      color: var(--neon);
+      letter-spacing: .12em;
+      font-weight: 700;
+    }
+
+    /* Stats strip */
+    .stats-strip {
+      display: flex; gap: 0;
+      border-left: 1px solid rgba(0,230,180,.08);
+      margin-left: 8px;
+    }
+    .stat-pill {
+      padding: 0 18px;
+      border-right: 1px solid rgba(0,230,180,.08);
+      text-align: center;
+    }
+    .stat-pill .num {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1;
+      display: block;
+    }
+    .stat-pill .lbl {
+      font-size: .62rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 3px;
+    }
+    .num-active { color: var(--neon); text-shadow: 0 0 12px var(--neon-glow); }
+    .num-idle   { color: var(--blue); }
+    .num-err    { color: var(--red);  }
+
+    /* Refresh ticker */
+    .refresh-info {
+      font-family: var(--mono);
+      font-size: .64rem;
+      color: var(--text-muted);
+      letter-spacing: .08em;
+      text-align: right;
+      line-height: 1.5;
+    }
+    .refresh-info strong { color: var(--neon); }
+
+    /* ── Main content ─────────────────────────────── */
+    main {
+      flex: 1;
+      padding: 28px 32px 40px;
+    }
+
+    /* Section label */
+    .section-label {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .section-label span {
+      font-size: .7rem;
+      font-family: var(--mono);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(0,230,180,.2), transparent);
+    }
+
+    /* ── Grid container ────────────────────────────── */
+    #liveSessionsMonitor {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 18px;
+    }
+
+    /* ── Session card ──────────────────────────────── */
+    .session-card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(22px) saturate(1.3);
+      -webkit-backdrop-filter: blur(22px) saturate(1.3);
+      box-shadow: 0 2px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+      transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease, border-color .22s ease;
+      overflow: hidden;
+      animation: card-in .35s ease both;
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(14px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .session-card:hover {
+      transform: translateY(-5px) scale(1.025);
+      box-shadow: 0 12px 48px rgba(0,0,0,.45), 0 0 0 1px rgba(0,230,180,.2);
+    }
+
+    /* Active neon border */
+    .session-card.is-active {
+      border-color: var(--border-active);
+      box-shadow: 0 2px 32px rgba(0,0,0,.35), 0 0 22px rgba(0,230,180,.1), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .session-card.is-active:hover {
+      box-shadow: 0 12px 48px rgba(0,0,0,.45), 0 0 30px rgba(0,230,180,.18), 0 0 0 1px var(--border-active);
+    }
+
+    /* Diagonal corner accent on active */
+    .session-card.is-active::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 60px; height: 60px;
+      background: linear-gradient(225deg, rgba(0,230,180,.15) 0%, transparent 65%);
+      border-radius: 0 14px 0 0;
+      pointer-events: none;
+    }
+
+    /* ── Card header ── */
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .session-id {
+      font-family: var(--mono);
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--neon);
+      letter-spacing: .08em;
+      text-shadow: 0 0 10px var(--neon-glow);
+      line-height: 1;
+    }
+    .session-id small {
+      display: block;
+      font-size: .6rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-top: 3px;
+      letter-spacing: .06em;
+      text-shadow: none;
+    }
+
+    /* Status dot cluster */
+    .status-cluster {
+      display: flex; align-items: center; gap: 5px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-active { background: var(--neon);  box-shadow: 0 0 7px var(--neon);  animation: dot-blink 2s ease-in-out infinite; }
+    .dot-idle   { background: var(--blue);  box-shadow: 0 0 7px var(--blue);  }
+    .dot-error  { background: var(--red);   box-shadow: 0 0 7px var(--red);   animation: dot-blink 1s ease-in-out infinite; }
+    @keyframes dot-blink {
+      0%,100% { opacity: 1; } 50% { opacity: .3; }
+    }
+    .status-label {
+      font-family: var(--mono);
+      font-size: .62rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .lbl-active { color: var(--neon); }
+    .lbl-idle   { color: var(--blue); }
+    .lbl-error  { color: var(--red);  }
+
+    /* ── URL row ── */
+    .card-url {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.05);
+      border-radius: 7px;
+      padding: 7px 10px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .url-icon { font-size: .8rem; opacity: .5; flex-shrink: 0; }
+    .url-text {
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: .02em;
+    }
+
+    /* ── Metrics row ── */
+    .card-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric {
+      background: rgba(0,0,0,.2);
+      border: 1px solid rgba(255,255,255,.04);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .metric-lbl {
+      font-size: .58rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 3px;
+      font-family: var(--mono);
+    }
+    .metric-val {
+      font-family: var(--mono);
+      font-size: .82rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Tiny progress bar inside metric */
+    .mini-bar-track {
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.06);
+      margin-top: 5px;
+      overflow: hidden;
+    }
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--neon), #00cfff);
+      box-shadow: 0 0 5px var(--neon-glow);
+    }
+
+    /* ── Footer row ── */
+    .card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .uptime-block {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .uptime-icon { font-size: .75rem; opacity: .4; }
+    .uptime-val {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--text-muted);
+      letter-spacing: .06em;
+    }
+
+    /* Focus button */
+    .focus-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 14px;
+      border: 1px solid rgba(0,230,180,.3);
+      border-radius: 7px;
+      background: rgba(0,230,180,.07);
+      color: var(--neon);
+      font-family: var(--mono);
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .18s, box-shadow .18s, transform .12s;
+    }
+    .focus-btn:hover {
+      background: rgba(0,230,180,.16);
+      box-shadow: 0 0 14px rgba(0,230,180,.25);
+      transform: translateY(-1px);
+    }
+    .focus-btn:active { transform: scale(.96); }
+
+    /* ── Skeleton cards ─────────────────────────────── */
+    @keyframes shimmer {
+      0%   { background-position: -500px 0; }
+      100% { background-position:  500px 0; }
+    }
+    .skel {
+      border-radius: 6px;
+      background: linear-gradient(90deg,
+        rgba(255,255,255,.04) 25%,
+        rgba(255,255,255,.09) 50%,
+        rgba(255,255,255,.04) 75%);
+      background-size: 500px 100%;
+      animation: shimmer 1.5s infinite linear;
+    }
+    .skeleton-card {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,.05);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+    }
+    .sk-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .sk-id   { height: 12px; width: 80px;  border-radius: 4px; }
+    .sk-dot  { height: 8px;  width: 48px;  border-radius: 99px; }
+    .sk-url  { height: 30px; border-radius: 7px; margin-bottom: 14px; }
+    .sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .sk-metric { height: 52px; border-radius: 8px; }
+    .sk-foot { display: flex; align-items: center; justify-content: space-between; }
+    .sk-up  { height: 10px; width: 70px; border-radius: 4px; }
+    .sk-btn { height: 28px; width: 64px; border-radius: 7px; }
+
+    /* ── Empty state ────────────────────────────────── */
+    .empty-state {
+      grid-column: 1 / -1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 72px 40px;
+      text-align: center;
+    }
+    .empty-icon {
+      font-size: 3rem;
+      opacity: .18;
+      margin-bottom: 16px;
+    }
+    .empty-title {
+      font-size: .9rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ── Scrollbar ─────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,230,180,.2); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Header ─────────────────────────────────── -->
+  <header>
+    <div class="header-icon">⚡</div>
+    <div class="header-titles">
+      <h1>LiveMonitor</h1>
+      <p>Session Watcher · Real-time</p>
+    </div>
+
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span>Live</span>
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-pill">
+        <span class="num num-active" id="statActive">—</span>
+        <span class="lbl">Active</span>
+      </div>
+      <div class="stat-pill">
+        <span class="num num-idle" id="statIdle">—</span>
+        <span class="lbl">Idle</span>
+      </div>
+      <div class="stat-pill">
+        <span class="num num-err" id="statErr">—</span>
+        <span class="lbl">Error</span>
+      </div>
+    </div>
+
+    <div class="refresh-info">
+      Refresh every <strong>2s</strong><br />
+      Last: <span id="lastRefreshTime">—</span>
+    </div>
+  </header>
+
+  <!-- ── Main ────────────────────────────────────── -->
+  <main>
+    <div class="section-label">
+      <span>Active Sessions</span>
+    </div>
+
+    <!-- Populated dynamically by JS / Eel -->
+    <div id="liveSessionsMonitor">
+      <!-- 3 skeleton cards on boot -->
+    </div>
+  </main>
+
+</div><!-- /page -->
+
+<!-- ═══════════════════════════════════════════════
+     SCRIPT
+═══════════════════════════════════════════════ -->
+<script>
+  /* ── Helpers ──────────────────────────────────── */
+  const monitor = document.getElementById('liveSessionsMonitor');
+
+  function shortId(id) {
+    return id.length > 10 ? id.slice(0, 4) + '…' + id.slice(-4) : id;
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString('en-GB');
+  }
+
+  /* ── Skeleton cards ───────────────────────────── */
+  function skeletonCard() {
+    const el = document.createElement('div');
+    el.className = 'skeleton-card';
+    el.innerHTML = `
+      <div class="sk-row">
+        <div class="skel sk-id"></div>
+        <div class="skel sk-dot"></div>
+      </div>
+      <div class="skel sk-url"></div>
+      <div class="sk-grid">
+        <div class="skel sk-metric"></div>
+        <div class="skel sk-metric"></div>
+      </div>
+      <div class="sk-foot">
+        <div class="skel sk-up"></div>
+        <div class="skel sk-btn"></div>
+      </div>
+    `;
+    return el;
+  }
+
+  function showSkeletons(n = 3) {
+    monitor.innerHTML = '';
+    for (let i = 0; i < n; i++) monitor.appendChild(skeletonCard());
+  }
+
+  /* ── Build a real session card ────────────────── */
+  function buildCard(session, index) {
+    const { id, url, status, uptime, cpu, mem } = session;
+
+    const statusMap = {
+      active: { dotCls: 'dot-active', lblCls: 'lbl-active', label: 'Active' },
+      idle:   { dotCls: 'dot-idle',   lblCls: 'lbl-idle',   label: 'Idle' },
+      error:  { dotCls: 'dot-error',  lblCls: 'lbl-error',  label: 'Error' },
+    };
+    const st = statusMap[status] || statusMap.idle;
+
+    const cpuPct  = Math.min(100, Math.max(0, cpu));
+    const memPct  = Math.min(100, Math.max(0, mem));
+
+    const card = document.createElement('div');
+    card.className = `session-card${status === 'active' ? ' is-active' : ''}`;
+    card.style.animationDelay = `${index * 55}ms`;
+    card.dataset.sessionId = id;
+
+    card.innerHTML = `
+      <div class="card-head">
+        <div class="session-id">
+          ${shortId(id)}
+          <small>SESSION ID</small>
+        </div>
+        <div class="status-cluster">
+          <div class="status-dot ${st.dotCls}"></div>
+          <span class="status-label ${st.lblCls}">${st.label}</span>
+        </div>
+      </div>
+
+      <div class="card-url">
+        <span class="url-icon">🔗</span>
+        <span class="url-text" title="${url}">${url}</span>
+      </div>
+
+      <div class="card-metrics">
+        <div class="metric">
+          <span class="metric-lbl">CPU</span>
+          <span class="metric-val">${cpuPct.toFixed(1)}%</span>
+          <div class="mini-bar-track">
+            <div class="mini-bar-fill" style="width:${cpuPct}%;"></div>
+          </div>
+        </div>
+        <div class="metric">
+          <span class="metric-lbl">Memory</span>
+          <span class="metric-val">${memPct.toFixed(0)}%</span>
+          <div class="mini-bar-track">
+            <div class="mini-bar-fill" style="width:${memPct}%;background:linear-gradient(90deg,#00e6b4,#38b2ff);"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-foot">
+        <div class="uptime-block">
+          <span class="uptime-icon">⏱</span>
+          <span class="uptime-val">${uptime}</span>
+        </div>
+        <button class="focus-btn" data-id="${id}">
+          <span>◈</span>
+          <span>Focus</span>
+        </button>
+      </div>
+    `;
+
+    // Focus button handler — wire to eel.focus_session(id) in main.js
+    card.querySelector('.focus-btn').addEventListener('click', () => {
+      if (typeof eel !== 'undefined') {
+        eel.focus_session(id)();
+      }
+      console.log('[LiveMonitor] Focus:', id);
+    });
+
+    return card;
+  }
+
+  /* ── Render session list ──────────────────────── */
+  function renderSessions(sessions) {
+    monitor.innerHTML = '';
+
+    // Update stats
+    document.getElementById('statActive').textContent = sessions.filter(s => s.status === 'active').length;
+    document.getElementById('statIdle').textContent   = sessions.filter(s => s.status === 'idle').length;
+    document.getElementById('statErr').textContent    = sessions.filter(s => s.status === 'error').length;
+
+    if (!sessions.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = `
+        <div class="empty-icon">🌐</div>
+        <div class="empty-title">No active sessions</div>
+      `;
+      monitor.appendChild(empty);
+      return;
+    }
+
+    sessions.forEach((s, i) => monitor.appendChild(buildCard(s, i)));
+    document.getElementById('lastRefreshTime').textContent = now();
+  }
+
+  /* ── refreshLiveMonitor ───────────────────────────
+     Called every 2 s. Wire up eel inside this function
+     or replace its body in main.js via eel.expose.
+  ─────────────────────────────────────────────────── */
+  function refreshLiveMonitor() {
+    if (typeof eel !== 'undefined') {
+      // Eel integration:
+      // eel.get_live_sessions()(function(sessions){ renderSessions(sessions); });
+    } else {
+      // Fallback demo data while running in browser
+      const DEMO = [
+        { id: 'BRW-0a1f3c', url: 'https://store.example.com/checkout', status: 'active', uptime: '00:22:14', cpu: 38, mem: 52 },
+        { id: 'BRW-7e92bc', url: 'https://news.ycombinator.com',        status: 'active', uptime: '00:08:07', cpu: 12, mem: 31 },
+        { id: 'BRW-3d55fa', url: 'https://github.com/explore',          status: 'idle',   uptime: '00:41:00', cpu:  4, mem: 28 },
+        { id: 'BRW-c081ee', url: 'https://app.dashboard.io/metrics',    status: 'active', uptime: '01:02:39', cpu: 61, mem: 74 },
+        { id: 'BRW-1b44d2', url: 'https://google.com/search?q=test',    status: 'error',  uptime: '00:01:12', cpu:  0, mem: 10 },
+        { id: 'BRW-8f30aa', url: 'https://cdn.assets.io/images/large',  status: 'idle',   uptime: '00:14:55', cpu:  2, mem: 22 },
+      ].map(s => ({
+        ...s,
+        // Jitter metrics slightly on each refresh
+        cpu: Math.max(0, Math.min(100, s.cpu + (Math.random() - .5) * 8)),
+        mem: Math.max(0, Math.min(100, s.mem + (Math.random() - .5) * 4)),
+      }));
+      renderSessions(DEMO);
+    }
+  }
+
+  /* ── Boot ─────────────────────────────────────── */
+  showSkeletons(3);
+
+  // First paint after a short simulated load
+  setTimeout(() => {
+    refreshLiveMonitor();
+    // Auto-refresh every 2 seconds
+    setInterval(refreshLiveMonitor, 2000);
+  }, 900);
+</script>
+</body>
+</html>

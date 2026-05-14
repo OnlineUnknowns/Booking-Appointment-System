@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proxy Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:       #080c14;
+      --bg-mid:        #0d1424;
+      --glass-bg:      rgba(255,255,255,0.04);
+      --glass-border:  rgba(255,255,255,0.09);
+      --glass-hover:   rgba(255,255,255,0.07);
+      --accent:        #00e5ff;
+      --accent-dim:    rgba(0,229,255,0.15);
+      --accent-glow:   rgba(0,229,255,0.35);
+      --green:         #00f59b;
+      --green-dim:     rgba(0,245,155,0.18);
+      --red:           #ff3d5a;
+      --red-dim:       rgba(255,61,90,0.15);
+      --red-hover:     rgba(255,61,90,0.28);
+      --text-primary:  #e8f0fe;
+      --text-secondary:#7a8fad;
+      --text-muted:    #3d4f68;
+      --mono:          'JetBrains Mono', monospace;
+      --sans:          'Syne', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: var(--mono);
+      overflow-x: hidden;
+    }
+
+    /* ── Background grid ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Glow orbs ── */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -180px; left: -180px;
+      width: 520px; height: 520px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,229,255,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb2 {
+      position: fixed;
+      bottom: -200px; right: -200px;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,245,155,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Page wrapper ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 40px 48px;
+      gap: 32px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent);
+      opacity: 0.8;
+    }
+
+    .title {
+      font-family: var(--sans);
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .title span {
+      color: var(--accent);
+    }
+
+    /* ── Add button ── */
+    #addProxyBtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--bg-deep);
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.15s, background 0.2s;
+      box-shadow: 0 0 22px var(--accent-glow);
+    }
+
+    #addProxyBtn:hover {
+      background: #33ecff;
+      transform: translateY(-2px);
+      box-shadow: 0 0 36px var(--accent-glow), 0 8px 20px rgba(0,0,0,0.4);
+    }
+
+    #addProxyBtn:active {
+      transform: translateY(0);
+    }
+
+    #addProxyBtn .btn-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .stat-chip strong {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0;
+    }
+
+    /* ── Glass card ── */
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      overflow: hidden;
+      box-shadow:
+        0 4px 24px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    /* ── Table ── */
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    thead th {
+      padding: 14px 20px;
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    thead th:first-child { padding-left: 28px; }
+    thead th:last-child  { padding-right: 28px; text-align: center; }
+
+    /* ── Body rows ── */
+    #proxyTableBody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.18s;
+      animation: rowIn 0.35s ease both;
+    }
+
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #proxyTableBody tr:last-child { border-bottom: none; }
+
+    #proxyTableBody tr:hover {
+      background: var(--glass-hover);
+    }
+
+    #proxyTableBody td {
+      padding: 15px 20px;
+      font-size: 13px;
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    #proxyTableBody td:first-child { padding-left: 28px; }
+    #proxyTableBody td:last-child  { padding-right: 28px; text-align: center; }
+
+    /* Server cell */
+    .cell-server {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .server-addr {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .server-port {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Username cell */
+    .cell-user {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .cell-user.anonymous {
+      font-style: italic;
+      color: var(--text-muted);
+    }
+
+    /* Status cell */
+    .status-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .status-wrap.active {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(0,245,155,0.25);
+    }
+
+    .status-wrap.inactive {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* Pulse dot */
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .active .dot {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    .inactive .dot {
+      background: var(--text-muted);
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 4px var(--green), 0 0 8px rgba(0,245,155,0.4); transform: scale(1); }
+      50%       { box-shadow: 0 0 10px var(--green), 0 0 20px rgba(0,245,155,0.5); transform: scale(1.25); }
+    }
+
+    /* Delete button */
+    .btn-delete {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      color: var(--red);
+      background: var(--red-dim);
+      border: 1px solid rgba(255,61,90,0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s, transform 0.12s, box-shadow 0.18s;
+    }
+
+    .btn-delete:hover {
+      background: var(--red-hover);
+      border-color: rgba(255,61,90,0.45);
+      box-shadow: 0 0 12px rgba(255,61,90,0.25);
+      transform: scale(1.04);
+    }
+
+    .btn-delete:active {
+      transform: scale(0.97);
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 72px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 40px;
+      opacity: 0.4;
+    }
+
+    .empty-title {
+      font-family: var(--sans);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .empty-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8,12,20,0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: #0f1a2c;
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.07);
+      transform: translateY(20px) scale(0.97);
+      transition: transform 0.25s;
+    }
+
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-family: var(--sans);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+
+    .modal-close:hover { color: var(--text-primary); }
+
+    /* Form fields */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .field input,
+    .field select {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+      -webkit-appearance: none;
+    }
+
+    .field input::placeholder { color: var(--text-muted); }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .btn-cancel {
+      padding: 9px 18px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-cancel:hover {
+      background: var(--glass-hover);
+      color: var(--text-primary);
+    }
+
+    .btn-submit {
+      padding: 9px 22px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--bg-deep);
+      background: var(--accent);
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .btn-submit:hover {
+      background: #33ecff;
+      transform: translateY(-1px);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      padding: 12px 20px;
+      background: #0f1a2c;
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--text-primary);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.3s cubic-bezier(.16,1,.3,1), opacity 0.3s;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb2"></div>
+
+  <div class="page">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <span class="eyebrow">Network ∙ Configuration</span>
+        <h1 class="title">Proxy <span>Manager</span></h1>
+      </div>
+      <button id="addProxyBtn" onclick="openModal()">
+        <span class="btn-icon">➕</span> Add Proxy
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-chip">
+        <strong id="statTotal">0</strong> Total
+      </div>
+      <div class="stat-chip">
+        <strong id="statActive" style="color:var(--green)">0</strong> Active
+      </div>
+      <div class="stat-chip">
+        <strong id="statInactive" style="color:var(--text-muted)">0</strong> Inactive
+      </div>
+    </div>
+
+    <!-- Table card -->
+    <div class="glass-card">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Server</th>
+              <th>Username</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="proxyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Proxy Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">New Proxy</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="field-group">
+        <div class="field-row">
+          <div class="field">
+            <label>Host / IP</label>
+            <input id="inputHost" type="text" placeholder="192.168.1.1" />
+          </div>
+          <div class="field">
+            <label>Port</label>
+            <input id="inputPort" type="text" placeholder="8080" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Username <span style="color:var(--text-muted);font-size:9px">(optional)</span></label>
+          <input id="inputUser" type="text" placeholder="user@domain" />
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="inputStatus">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-submit" onclick="submitProxy()">Add Proxy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let proxies = [
+      { id: 1, host: '104.21.55.210', port: '3128', username: 'admin',    status: 'active'   },
+      { id: 2, host: '185.199.108.1', port: '8080', username: 'proxy_u2', status: 'active'   },
+      { id: 3, host: '10.0.0.45',     port: '1080', username: '',         status: 'inactive' },
+    ];
+    let nextId = 4;
+
+    /* ── Render ─────────────────────────────────────── */
+    function render() {
+      const tbody = document.getElementById('proxyTableBody');
+      tbody.innerHTML = '';
+
+      if (proxies.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <div class="empty-icon">🛰️</div>
+                <div class="empty-title">No proxies configured</div>
+                <div class="empty-sub">Click "Add Proxy" to get started.</div>
+              </div>
+            </td>
+          </tr>`;
+      } else {
+        proxies.forEach((p, i) => {
+          const tr = document.createElement('tr');
+          tr.style.animationDelay = `${i * 0.04}s`;
+          tr.innerHTML = `
+            <td>
+              <div class="cell-server">
+                <span class="server-addr">${p.host}</span>
+                <span class="server-port">:${p.port}</span>
+              </div>
+            </td>
+            <td>
+              <span class="cell-user ${p.username ? '' : 'anonymous'}">
+                ${p.username || '— anonymous —'}
+              </span>
+            </td>
+            <td>
+              <span class="status-wrap ${p.status}">
+                <span class="dot"></span>
+                ${p.status}
+              </span>
+            </td>
+            <td>
+              <button class="btn-delete" onclick="deleteProxy(${p.id})">
+                🗑 Delete
+              </button>
+            </td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Stats
+      const active = proxies.filter(p => p.status === 'active').length;
+      document.getElementById('statTotal').textContent   = proxies.length;
+      document.getElementById('statActive').textContent  = active;
+      document.getElementById('statInactive').textContent = proxies.length - active;
+    }
+
+    /* ── Delete ──────────────────────────────────────── */
+    function deleteProxy(id) {
+      proxies = proxies.filter(p => p.id !== id);
+      render();
+      showToast('🗑 Proxy removed');
+    }
+
+    /* ── Modal ───────────────────────────────────────── */
+    function openModal() {
+      document.getElementById('inputHost').value   = '';
+      document.getElementById('inputPort').value   = '';
+      document.getElementById('inputUser').value   = '';
+      document.getElementById('inputStatus').value = 'active';
+      document.getElementById('modalOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('inputHost').focus(), 80);
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+
+    function submitProxy() {
+      const host   = document.getElementById('inputHost').value.trim();
+      const port   = document.getElementById('inputPort').value.trim();
+      const user   = document.getElementById('inputUser').value.trim();
+      const status = document.getElementById('inputStatus').value;
+
+      if (!host || !port) {
+        showToast('⚠️ Host and port are required', true);
+        return;
+      }
+
+      proxies.push({ id: nextId++, host, port, username: user, status });
+      closeModal();
+      render();
+      showToast('✅ Proxy added successfully');
+    }
+
+    /* Close modal on overlay click */
+    document.getElementById('modalOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    /* ── Toast ───────────────────────────────────────── */
+    let toastTimer;
+    function showToast(msg, warn = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.borderColor = warn ? 'rgba(255,61,90,0.3)' : 'rgba(0,229,255,0.2)';
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    /* ── Init ────────────────────────────────────────── */
+    render();
+  </script>
+</body>
+</html>

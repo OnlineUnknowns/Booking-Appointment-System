@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SlotWatch — Availability Monitor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens ──────────────────────────── */
+    :root {
+      --bg:           #07090f;
+      --surface:      rgba(12, 18, 32, 0.82);
+      --surface-up:   rgba(16, 24, 44, 0.9);
+      --border:       rgba(120, 140, 200, 0.12);
+      --border-lit:   rgba(120, 200, 255, 0.28);
+
+      /* state colors */
+      --col-idle:     #5a6278;
+      --col-active:   #00d4ff;
+      --col-found:    #00ff9d;
+      --col-waiting:  #ffb800;
+
+      --glow-active:  rgba(0, 212, 255, 0.22);
+      --glow-found:   rgba(0, 255, 157, 0.22);
+      --glow-waiting: rgba(255, 184, 0, 0.22);
+
+      --text:         #d4e2f4;
+      --text-dim:     rgba(180, 200, 230, 0.42);
+      --mono:         'DM Mono', monospace;
+      --sans:         'Outfit', sans-serif;
+
+      --radius-card:  18px;
+      --radius-sm:    9px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: var(--sans);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ── Ambient background ─────────────────────── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      overflow: hidden;
+    }
+    .bg-canvas::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 15% 10%,  rgba(0,80,180,.18) 0%, transparent 65%),
+        radial-gradient(ellipse 55% 50% at 85% 90%,  rgba(0,200,120,.1) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 55% 50%,  rgba(0,180,255,.06) 0%, transparent 55%);
+    }
+    .bg-canvas::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(120,160,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120,160,255,.022) 1px, transparent 1px);
+      background-size: 42px 42px;
+    }
+    /* Animated scan-line */
+    .scan-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, rgba(0,212,255,.18) 30%, rgba(0,212,255,.45) 50%, rgba(0,212,255,.18) 70%, transparent 100%);
+      animation: scan 7s linear infinite;
+      top: -2px;
+    }
+    @keyframes scan {
+      0%   { top: -2px;   opacity: .6; }
+      95%  { opacity: .6; }
+      100% { top: 100vh; opacity: 0;  }
+    }
+
+    /* ── Page layout ────────────────────────────── */
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      gap: 0;
+    }
+
+    /* ── Header wordmark ────────────────────────── */
+    .wordmark {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .wordmark-label {
+      font-family: var(--mono);
+      font-size: .62rem;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .wordmark-title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      color: #fff;
+      line-height: 1;
+    }
+    .wordmark-title span {
+      color: var(--col-active);
+      text-shadow: 0 0 28px rgba(0,212,255,.55);
+    }
+
+    /* ── Main card shell ────────────────────────── */
+    .shell {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Glass card base ────────────────────────── */
+    .glass {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      backdrop-filter: blur(28px) saturate(1.4);
+      -webkit-backdrop-filter: blur(28px) saturate(1.4);
+      box-shadow: 0 4px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
+      transition: border-color .4s ease, box-shadow .4s ease;
+    }
+
+    /* ── Config card ────────────────────────────── */
+    .config-card {
+      padding: 26px 28px;
+    }
+    .config-card-title {
+      font-family: var(--mono);
+      font-size: .65rem;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .config-card-title::before {
+      content: '//';
+      color: var(--col-active);
+      opacity: .7;
+    }
+
+    .selectors-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field-label {
+      font-size: .62rem;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    /* Custom select */
+    .sel-wrap { position: relative; }
+    select {
+      appearance: none;
+      width: 100%;
+      padding: 10px 36px 10px 13px;
+      background: rgba(0,0,0,.3);
+      border: 1px solid rgba(120,160,255,.18);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: .9rem;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M0 0l6 7 6-7' fill='none' stroke='%2300d4ff' stroke-width='1.4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    select:focus {
+      border-color: rgba(0,212,255,.45);
+      box-shadow: 0 0 14px rgba(0,212,255,.18);
+    }
+    select option { background: #0c1220; }
+
+    /* ── Action buttons ─────────────────────────── */
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: var(--sans);
+      font-size: .88rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform .15s, filter .15s, box-shadow .2s;
+    }
+    .btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,.1);
+      opacity: 0;
+      transition: opacity .18s;
+    }
+    .btn:hover::before { opacity: 1; }
+    .btn:active { transform: scale(.96); }
+    .btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    #startMonitorBtn {
+      background: linear-gradient(135deg, #007a44, #00ff9d 160%);
+      color: #001f10;
+      box-shadow: 0 0 22px rgba(0,255,157,.28);
+    }
+    #startMonitorBtn:not(:disabled):hover {
+      box-shadow: 0 0 34px rgba(0,255,157,.45);
+      transform: translateY(-2px);
+    }
+    /* Ripple ring when active */
+    #startMonitorBtn.monitoring::after {
+      content: '';
+      position: absolute; inset: -3px;
+      border-radius: calc(var(--radius-sm) + 3px);
+      border: 2px solid var(--col-found);
+      animation: btn-ring 1.4s ease-out infinite;
+    }
+    @keyframes btn-ring {
+      0%   { opacity: .9; transform: scale(1); }
+      100% { opacity: 0;  transform: scale(1.05); }
+    }
+
+    #stopMonitorBtn {
+      background: linear-gradient(135deg, #6b0018, #ff4466 160%);
+      color: #fff;
+      box-shadow: 0 0 22px rgba(255,68,102,.22);
+    }
+    #stopMonitorBtn:not(:disabled):hover {
+      box-shadow: 0 0 34px rgba(255,68,102,.4);
+      transform: translateY(-2px);
+    }
+
+    /* ── Status card ────────────────────────────── */
+    #monitorStatusCard {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Neon glow state (added by JS) */
+    #monitorStatusCard.state-active {
+      border-color: rgba(0,212,255,.32);
+      box-shadow: 0 4px 40px rgba(0,0,0,.4), 0 0 40px var(--glow-active), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    #monitorStatusCard.state-found {
+      border-color: rgba(0,255,157,.35);
+      box-shadow: 0 4px 40px rgba(0,0,0,.4), 0 0 50px var(--glow-found), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    #monitorStatusCard.state-waiting {
+      border-color: rgba(255,184,0,.32);
+      box-shadow: 0 4px 40px rgba(0,0,0,.4), 0 0 40px var(--glow-waiting), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    /* Diagonal corner shimmer */
+    #monitorStatusCard::before {
+      content: '';
+      position: absolute; top: 0; right: 0;
+      width: 90px; height: 90px;
+      background: radial-gradient(circle at top right, rgba(0,212,255,.1) 0%, transparent 65%);
+      border-radius: 0 var(--radius-card) 0 0;
+      pointer-events: none;
+      transition: background .4s;
+    }
+    #monitorStatusCard.state-found::before  { background: radial-gradient(circle at top right, rgba(0,255,157,.14) 0%, transparent 65%); }
+    #monitorStatusCard.state-waiting::before{ background: radial-gradient(circle at top right, rgba(255,184,0,.12)  0%, transparent 65%); }
+
+    /* ── Pulse dot + ring system ─────────────────── */
+    .dot-zone {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .dot-shell {
+      position: relative;
+      width: 44px; height: 44px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    /* Outer ring layers */
+    .dot-ring {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid var(--col-idle);
+      opacity: 0;
+    }
+    .dot-ring-2 {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid var(--col-idle);
+      opacity: 0;
+    }
+    /* Core dot */
+    #pulseDot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--col-idle);
+      box-shadow: 0 0 8px var(--col-idle);
+      position: relative; z-index: 1;
+      transition: background .4s, box-shadow .4s;
+    }
+
+    /* State classes drive CSS color, GSAP drives animation */
+    .dot-shell.state-active #pulseDot,
+    .dot-shell.state-active .dot-ring,
+    .dot-shell.state-active .dot-ring-2 { border-color: var(--col-active); }
+    .dot-shell.state-active #pulseDot   { background: var(--col-active); box-shadow: 0 0 16px var(--col-active); }
+
+    .dot-shell.state-found #pulseDot,
+    .dot-shell.state-found .dot-ring,
+    .dot-shell.state-found .dot-ring-2  { border-color: var(--col-found); }
+    .dot-shell.state-found #pulseDot    { background: var(--col-found);  box-shadow: 0 0 20px var(--col-found);  }
+
+    .dot-shell.state-waiting #pulseDot,
+    .dot-shell.state-waiting .dot-ring,
+    .dot-shell.state-waiting .dot-ring-2{ border-color: var(--col-waiting); }
+    .dot-shell.state-waiting #pulseDot  { background: var(--col-waiting); box-shadow: 0 0 16px var(--col-waiting); }
+
+    .dot-text {}
+    .dot-state-label {
+      font-family: var(--mono);
+      font-size: .68rem;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--col-idle);
+      transition: color .4s;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .dot-state-label.state-active  { color: var(--col-active);  text-shadow: 0 0 10px rgba(0,212,255,.5); }
+    .dot-state-label.state-found   { color: var(--col-found);   text-shadow: 0 0 10px rgba(0,255,157,.5); }
+    .dot-state-label.state-waiting { color: var(--col-waiting); text-shadow: 0 0 10px rgba(255,184,0,.5);  }
+
+    #stateLabel {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -.01em;
+      line-height: 1;
+    }
+
+    /* ── Slot message ───────────────────────────── */
+    #slotMessage {
+      font-family: var(--mono);
+      font-size: .85rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.05);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      min-height: 56px;
+      transition: color .3s, border-color .3s;
+    }
+    #slotMessage.has-slots {
+      color: var(--col-found);
+      border-color: rgba(0,255,157,.2);
+    }
+
+    /* ── Target details strip ───────────────────── */
+    .target-strip {
+      display: flex;
+      gap: 12px;
+    }
+    .target-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 99px;
+      padding: 5px 12px 5px 8px;
+    }
+    .chip-icon { font-size: .75rem; opacity: .55; }
+    .chip-val {
+      font-family: var(--mono);
+      font-size: .68rem;
+      color: var(--text-dim);
+      letter-spacing: .05em;
+    }
+    .chip-val strong { color: var(--text); font-weight: 500; }
+
+    /* ── Log feed ───────────────────────────────── */
+    .log-card { padding: 0; overflow: hidden; }
+    .log-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .log-header-title {
+      font-family: var(--mono);
+      font-size: .62rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .log-header-title::before { content: '// '; color: var(--col-active); opacity: .7; }
+    .log-clear {
+      font-family: var(--mono);
+      font-size: .58rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      cursor: pointer;
+      opacity: .5;
+      transition: opacity .2s;
+    }
+    .log-clear:hover { opacity: 1; }
+    #logFeed {
+      padding: 10px 14px;
+      max-height: 120px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-entry {
+      display: flex;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: .7rem;
+      line-height: 1.5;
+      animation: log-in .2s ease both;
+    }
+    @keyframes log-in {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .log-ts { color: var(--text-dim); flex-shrink: 0; }
+    .log-msg { color: var(--text); }
+    .log-msg.ok  { color: var(--col-found);   }
+    .log-msg.warn{ color: var(--col-waiting); }
+    .log-msg.err { color: #ff4466; }
+    .log-msg.info{ color: var(--col-active);  }
+
+    /* ── Scrollbar ──────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,212,255,.18); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Ambient bg -->
+<div class="bg-canvas"><div class="scan-line"></div></div>
+
+<div class="page">
+
+  <!-- Wordmark -->
+  <div class="wordmark">
+    <span class="wordmark-label">Eel Desktop · Availability Module</span>
+    <div class="wordmark-title">Slot<span>Watch</span></div>
+  </div>
+
+  <div class="shell">
+
+    <!-- ── Config card ─────────────────────────── -->
+    <div class="glass config-card">
+      <div class="config-card-title">Monitor Configuration</div>
+
+      <div class="selectors-row">
+        <!-- Platform selector -->
+        <div class="field-group">
+          <label class="field-label" for="monitorPlatform">Platform</label>
+          <div class="sel-wrap">
+            <select id="monitorPlatform">
+              <option value="chromium">Chromium</option>
+              <option value="chrome">Google Chrome</option>
+              <option value="firefox">Firefox</option>
+              <option value="edge">Microsoft Edge</option>
+              <option value="webkit">WebKit / Safari</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Country selector -->
+        <div class="field-group">
+          <label class="field-label" for="monitorCountry">Country</label>
+          <div class="sel-wrap">
+            <select id="monitorCountry">
+              <option value="us">🇺🇸 United States</option>
+              <option value="gb">🇬🇧 United Kingdom</option>
+              <option value="de">🇩🇪 Germany</option>
+              <option value="jp">🇯🇵 Japan</option>
+              <option value="br">🇧🇷 Brazil</option>
+              <option value="in">🇮🇳 India</option>
+              <option value="au">🇦🇺 Australia</option>
+              <option value="fr">🇫🇷 France</option>
+              <option value="ca">🇨🇦 Canada</option>
+              <option value="sg">🇸🇬 Singapore</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="btn-row">
+        <button class="btn" id="startMonitorBtn">
+          <span>▶</span>
+          <span>Start Monitoring</span>
+        </button>
+        <button class="btn" id="stopMonitorBtn" disabled>
+          <span>⏹</span>
+          <span>Stop</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Status card ─────────────────────────── -->
+    <div class="glass" id="monitorStatusCard">
+
+      <!-- Dot + state text -->
+      <div class="dot-zone">
+        <div class="dot-shell" id="dotShell">
+          <div class="dot-ring-2" id="dotRing2"></div>
+          <div class="dot-ring"  id="dotRing1"></div>
+          <div id="pulseDot"></div>
+        </div>
+        <div class="dot-text">
+          <span class="dot-state-label" id="dotStateLabel">Idle</span>
+          <span id="stateLabel">Waiting to start</span>
+        </div>
+      </div>
+
+      <!-- Slot message -->
+      <div id="slotMessage">
+        — No monitoring session active. Configure a platform and country, then press Start.
+      </div>
+
+      <!-- Target details -->
+      <div class="target-strip">
+        <div class="target-chip">
+          <span class="chip-icon">🖥</span>
+          <span class="chip-val">Platform: <strong id="chipPlatform">—</strong></span>
+        </div>
+        <div class="target-chip">
+          <span class="chip-icon">🌐</span>
+          <span class="chip-val">Country: <strong id="chipCountry">—</strong></span>
+        </div>
+        <div class="target-chip">
+          <span class="chip-icon">⏱</span>
+          <span class="chip-val">Checks: <strong id="chipChecks">0</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Log feed ─────────────────────────────── -->
+    <div class="glass log-card">
+      <div class="log-header">
+        <span class="log-header-title">Event Log</span>
+        <button class="log-clear" onclick="clearLog()">Clear</button>
+      </div>
+      <div id="logFeed">
+        <div class="log-entry">
+          <span class="log-ts">--:--:--</span>
+          <span class="log-msg">SlotWatch initialised. Awaiting session.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /shell -->
+</div><!-- /page -->
+
+<!-- ═══════════════════════════════════════════════
+     SCRIPT
+═══════════════════════════════════════════════ -->
+<script>
+  /* ── State ──────────────────────────────────── */
+  const State = { IDLE: 'idle', ACTIVE: 'active', FOUND: 'found', WAITING: 'waiting' };
+  let currentState = State.IDLE;
+  let gsapTimeline = null;
+  let checkCount   = 0;
+
+  /* ── Element refs ───────────────────────────── */
+  const startBtn       = document.getElementById('startMonitorBtn');
+  const stopBtn        = document.getElementById('stopMonitorBtn');
+  const statusCard     = document.getElementById('monitorStatusCard');
+  const dotShell       = document.getElementById('dotShell');
+  const pulseDot       = document.getElementById('pulseDot');
+  const dotRing1       = document.getElementById('dotRing1');
+  const dotRing2       = document.getElementById('dotRing2');
+  const dotStateLabel  = document.getElementById('dotStateLabel');
+  const stateLabel     = document.getElementById('stateLabel');
+  const slotMessage    = document.getElementById('slotMessage');
+  const chipPlatform   = document.getElementById('chipPlatform');
+  const chipCountry    = document.getElementById('chipCountry');
+  const chipChecks     = document.getElementById('chipChecks');
+  const logFeed        = document.getElementById('logFeed');
+  const platformSel    = document.getElementById('monitorPlatform');
+  const countrySel     = document.getElementById('monitorCountry');
+
+  /* ── GSAP pulse animations ──────────────────── */
+  const stateColours = {
+    [State.IDLE]:    { dot: '#5a6278', ring: '#5a6278', glow: 'none' },
+    [State.ACTIVE]:  { dot: '#00d4ff', ring: '#00d4ff', glow: '0 0 22px rgba(0,212,255,.7)' },
+    [State.FOUND]:   { dot: '#00ff9d', ring: '#00ff9d', glow: '0 0 26px rgba(0,255,157,.75)' },
+    [State.WAITING]: { dot: '#ffb800', ring: '#ffb800', glow: '0 0 20px rgba(255,184,0,.65)' },
+  };
+
+  function stopGsap() {
+    if (gsapTimeline) { gsapTimeline.kill(); gsapTimeline = null; }
+    gsap.killTweensOf([pulseDot, dotRing1, dotRing2]);
+    gsap.set([dotRing1, dotRing2], { opacity: 0, scale: 1 });
+    gsap.set(pulseDot, { scale: 1 });
+  }
+
+  function startGsap(state) {
+    stopGsap();
+    const c = stateColours[state];
+
+    // Dot core
+    gsap.set(pulseDot, { backgroundColor: c.dot, boxShadow: c.glow });
+    gsap.set(dotRing1, { borderColor: c.ring });
+    gsap.set(dotRing2, { borderColor: c.ring });
+
+    if (state === State.IDLE) return;
+
+    const speed = state === State.FOUND ? 0.7 : state === State.WAITING ? 1.1 : 1.4;
+
+    gsapTimeline = gsap.timeline({ repeat: -1 });
+    // Core scale breathe
+    gsapTimeline.to(pulseDot, { scale: 1.25, duration: speed * .45, ease: 'sine.inOut', yoyo: true, repeat: 1 }, 0);
+    // Inner ring expand
+    gsapTimeline.to(dotRing1, { opacity: .7, scale: 1.6, duration: speed * .6, ease: 'sine.out' }, 0);
+    gsapTimeline.to(dotRing1, { opacity: 0, scale: 2.2, duration: speed * .5, ease: 'sine.in'  }, speed * .6);
+    // Outer ring expand (offset)
+    gsapTimeline.to(dotRing2, { opacity: .4, scale: 1.3, duration: speed * .6, ease: 'sine.out' }, speed * .25);
+    gsapTimeline.to(dotRing2, { opacity: 0, scale: 2.0, duration: speed * .5, ease: 'sine.in'  }, speed * .85);
+  }
+
+  /* ── Apply UI state ─────────────────────────── */
+  const stateClasses = ['state-active', 'state-found', 'state-waiting'];
+
+  function applyState(state, labelText, messageText, hasSlots = false) {
+    currentState = state;
+
+    // Remove all state classes
+    stateClasses.forEach(c => {
+      statusCard.classList.remove(c);
+      dotShell.classList.remove(c);
+      dotStateLabel.classList.remove(c);
+    });
+
+    // Add new state class
+    if (state !== State.IDLE) {
+      const cls = `state-${state}`;
+      statusCard.classList.add(cls);
+      dotShell.classList.add(cls);
+      dotStateLabel.classList.add(cls);
+    }
+
+    dotStateLabel.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+    stateLabel.textContent    = labelText;
+    slotMessage.textContent   = messageText;
+    slotMessage.classList.toggle('has-slots', hasSlots);
+
+    startGsap(state);
+  }
+
+  /* ── Log helper ─────────────────────────────── */
+  function ts() {
+    return new Date().toLocaleTimeString('en-GB');
+  }
+  function addLog(msg, type = '') {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `<span class="log-ts">${ts()}</span><span class="log-msg ${type}">${msg}</span>`;
+    logFeed.appendChild(entry);
+    logFeed.scrollTop = logFeed.scrollHeight;
+  }
+  function clearLog() {
+    logFeed.innerHTML = '';
+    addLog('Log cleared.', 'info');
+  }
+
+  /* ── Chip helpers ───────────────────────────── */
+  function updateChips() {
+    const platText    = platformSel.options[platformSel.selectedIndex].text;
+    const countryText = countrySel.options[countrySel.selectedIndex].text;
+    chipPlatform.textContent = platText;
+    chipCountry.textContent  = countryText;
+    chipChecks.textContent   = checkCount;
+  }
+
+  /* ── Button handlers ────────────────────────── */
+  startBtn.addEventListener('click', () => {
+    const platform = platformSel.value;
+    const country  = countrySel.value;
+    checkCount = 0;
+    updateChips();
+
+    // Update button states
+    startBtn.disabled = true;
+    stopBtn.disabled  = false;
+    startBtn.classList.add('monitoring');
+
+    // Disable selectors during monitoring
+    platformSel.disabled = true;
+    countrySel.disabled  = true;
+
+    applyState(
+      State.ACTIVE,
+      'Monitoring active…',
+      `🔍 Scanning slots on ${platformSel.options[platformSel.selectedIndex].text} · ${countrySel.options[countrySel.selectedIndex].text}…`
+    );
+
+    addLog(`Started monitoring [${platform}] in [${country}]`, 'info');
+
+    // ── Eel call ──
+    // eel.start_monitoring(platform, country)();
+  });
+
+  stopBtn.addEventListener('click', () => {
+    startBtn.disabled = false;
+    stopBtn.disabled  = true;
+    startBtn.classList.remove('monitoring');
+    platformSel.disabled = false;
+    countrySel.disabled  = false;
+
+    applyState(State.IDLE, 'Monitoring stopped', '— Session ended. Press Start to begin a new scan.');
+    addLog('Monitoring stopped by user.', 'warn');
+
+    // ── Eel call ──
+    // eel.stop_monitoring()();
+  });
+
+  /* ── Public API (called from Python via Eel) ── */
+
+  /**
+   * eel.expose(updateMonitorStatus)
+   * Called from Python to push state updates into the UI.
+   *
+   * @param {string} state   - 'idle' | 'active' | 'found' | 'waiting'
+   * @param {string} message - Human-readable slot availability message
+   */
+  function updateMonitorStatus(state, message) {
+    checkCount++;
+    chipChecks.textContent = checkCount;
+
+    const labelMap = {
+      idle:    'Idle',
+      active:  'Scanning…',
+      found:   '✦ Slots available!',
+      waiting: 'No slots yet…',
+    };
+
+    applyState(
+      state,
+      labelMap[state] || state,
+      message,
+      state === 'found'
+    );
+
+    const logType = state === 'found' ? 'ok' : state === 'waiting' ? 'warn' : 'info';
+    addLog(message, logType);
+  }
+
+  // Expose for Eel
+  if (typeof eel !== 'undefined') {
+    eel.expose(updateMonitorStatus);
+  }
+
+  /* ── Init ───────────────────────────────────── */
+  applyState(State.IDLE, 'Waiting to start', '— No monitoring session active. Configure a platform and country, then press ▶ Start.');
+  updateChips();
+</script>
+</body>
+</html>

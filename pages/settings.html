@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ══════════════════════════════════════════════
+       TOKENS & RESET
+    ══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* palette */
+      --bg:           #07090f;
+      --surface:      rgba(10, 16, 30, 0.80);
+      --surface-2:    rgba(255,255,255,0.03);
+      --border:       rgba(255,255,255,0.07);
+      --border-h:     rgba(99,202,255,0.35);
+
+      --accent:       #63caff;
+      --accent-dim:   rgba(99,202,255,0.12);
+      --accent-glow:  rgba(99,202,255,0.22);
+      --accent-2:     #a78bfa;    /* violet – Telegram */
+      --accent-2-dim: rgba(167,139,250,0.10);
+      --accent-3:     #34d399;    /* emerald – Proxy */
+      --accent-3-dim: rgba(52,211,153,0.10);
+      --danger:       #f87171;
+
+      --text-1:       #dde6f0;
+      --text-2:       #6b82a8;
+      --text-3:       #37486a;
+
+      --font-display: 'Rajdhani', sans-serif;
+      --font-mono:    'Fira Code', monospace;
+
+      --blur:         20px;
+      --radius:       18px;
+      --row-r:        10px;
+      --tr:           0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ══════════════════════════════════════════════
+       BODY / BACKGROUND
+    ══════════════════════════════════════════════ */
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 65% 55% at 5% 5%,   rgba(99,202,255,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 45% at 95% 95%, rgba(167,139,250,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 40% at 55% 50%, rgba(52,211,153,0.04) 0%, transparent 60%),
+        repeating-linear-gradient(0deg,  rgba(255,255,255,0.016) 0px, rgba(255,255,255,0.016) 1px, transparent 1px, transparent 44px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.016) 0px, rgba(255,255,255,0.016) 1px, transparent 1px, transparent 44px);
+      font-family: var(--font-display);
+      color: var(--text-1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 72px;
+      position: relative;
+    }
+
+    /* scanlines */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 3px);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ══════════════════════════════════════════════
+       PAGE HEADER
+    ══════════════════════════════════════════════ */
+    .page-header {
+      width: 100%; max-width: 760px;
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 32px;
+      position: relative; z-index: 1;
+      animation: fadeDown 0.5s ease forwards;
+    }
+
+    .header-icon {
+      width: 46px; height: 46px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(99,202,255,0.2), rgba(99,202,255,0.04));
+      border: 1px solid rgba(99,202,255,0.28);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 22px rgba(99,202,255,0.14);
+      flex-shrink: 0;
+    }
+
+    .page-title {
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #dde6f0 20%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-sub {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-3);
+      letter-spacing: 0.1em;
+      margin-top: 2px;
+    }
+
+    /* ══════════════════════════════════════════════
+       GLASS SHELL
+    ══════════════════════════════════════════════ */
+    .shell {
+      width: 100%; max-width: 760px;
+      background: var(--surface);
+      backdrop-filter: blur(var(--blur));
+      -webkit-backdrop-filter: blur(var(--blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative; z-index: 1;
+      box-shadow: 0 6px 48px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05);
+      animation: riseUp 0.55s cubic-bezier(0.4,0,0.2,1) 0.1s both;
+    }
+
+    /* inner shine */
+    .shell::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 40%, rgba(255,255,255,0.12) 60%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* ══════════════════════════════════════════════
+       TABS
+    ══════════════════════════════════════════════ */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      padding: 0 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 16px 22px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-3);
+      font-family: var(--font-display);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: color var(--tr), border-color var(--tr);
+      white-space: nowrap;
+      position: relative;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover { color: var(--text-2); }
+
+    .tab-btn.active[data-tab="general"] { color: var(--accent);   border-bottom-color: var(--accent);   }
+    .tab-btn.active[data-tab="telegram"]{ color: var(--accent-2); border-bottom-color: var(--accent-2); }
+    .tab-btn.active[data-tab="proxy"]   { color: var(--accent-3); border-bottom-color: var(--accent-3); }
+
+    .tab-icon { font-size: 15px; }
+
+    /* ══════════════════════════════════════════════
+       PANELS
+    ══════════════════════════════════════════════ */
+    .panel {
+      display: none;
+      padding: 32px 32px 28px;
+      animation: panelIn 0.3s ease both;
+    }
+    .panel.active { display: block; }
+
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Section heading ── */
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .section-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .badge-cyan   { background: var(--accent-dim);   border: 1px solid rgba(99,202,255,0.2);  color: var(--accent);   box-shadow: 0 0 14px -4px var(--accent); }
+    .badge-violet { background: var(--accent-2-dim); border: 1px solid rgba(167,139,250,0.2); color: var(--accent-2); box-shadow: 0 0 14px -4px var(--accent-2); }
+    .badge-green  { background: var(--accent-3-dim); border: 1px solid rgba(52,211,153,0.2);  color: var(--accent-3); box-shadow: 0 0 14px -4px var(--accent-3); }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-1);
+    }
+
+    .section-desc {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      margin-top: 1px;
+    }
+
+    /* ══════════════════════════════════════════════
+       FORM ROWS
+    ══════════════════════════════════════════════ */
+    .field-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 18px;
+      border-radius: var(--row-r);
+      background: var(--surface-2);
+      border: 1px solid transparent;
+      transition: border-color var(--tr), background var(--tr);
+    }
+    .field-row:hover { background: rgba(255,255,255,0.04); border-color: var(--border); }
+
+    .field-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .field-label-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .field-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--text-1);
+    }
+
+    .field-hint {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      margin-top: 1px;
+    }
+
+    .field-right {
+      flex-shrink: 0;
+      margin-left: 24px;
+    }
+
+    /* ── Tooltip ── */
+    .tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      cursor: default;
+    }
+
+    .tooltip-icon {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      font-weight: 600;
+      transition: border-color var(--tr), color var(--tr);
+    }
+    .tooltip-wrap:hover .tooltip-icon {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tooltip-bubble {
+      position: absolute;
+      left: 50%; bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      background: #0d1829;
+      border: 1px solid rgba(99,202,255,0.2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-2);
+      white-space: nowrap;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      transform: translateX(-50%) translateY(4px);
+      z-index: 10;
+    }
+    .tooltip-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%; left: 50%; transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: rgba(99,202,255,0.2);
+    }
+    .tooltip-wrap:hover .tooltip-bubble {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ══════════════════════════════════════════════
+       INPUTS
+    ══════════════════════════════════════════════ */
+    .glass-input {
+      width: 240px;
+      padding: 9px 14px;
+      border-radius: 9px;
+      background: rgba(99,202,255,0.04);
+      border: 1px solid rgba(99,202,255,0.15);
+      color: var(--text-1);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      outline: none;
+      transition: border-color var(--tr), box-shadow var(--tr), background var(--tr);
+      letter-spacing: 0.04em;
+    }
+    .glass-input::placeholder { color: var(--text-3); }
+    .glass-input:hover { border-color: rgba(99,202,255,0.28); }
+    .glass-input:focus {
+      border-color: var(--accent);
+      background: rgba(99,202,255,0.07);
+      box-shadow: 0 0 0 3px rgba(99,202,255,0.12), 0 0 18px rgba(99,202,255,0.1);
+    }
+
+    /* violet focus for Telegram */
+    .glass-input.violet:focus {
+      border-color: var(--accent-2);
+      background: rgba(167,139,250,0.07);
+      box-shadow: 0 0 0 3px rgba(167,139,250,0.12), 0 0 18px rgba(167,139,250,0.1);
+    }
+    .glass-input.violet { border-color: rgba(167,139,250,0.15); background: rgba(167,139,250,0.04); }
+    .glass-input.violet:hover { border-color: rgba(167,139,250,0.3); }
+
+    /* password reveal wrapper */
+    .pw-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .pw-wrap .glass-input { padding-right: 38px; width: 240px; }
+
+    .pw-toggle {
+      position: absolute;
+      right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      display: flex; align-items: center;
+      padding: 2px;
+      transition: color var(--tr);
+    }
+    .pw-toggle:hover { color: var(--accent-2); }
+
+    /* ══════════════════════════════════════════════
+       CUSTOM CHECKBOX / TOGGLE
+    ══════════════════════════════════════════════ */
+    .toggle-wrap {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      gap: 10px;
+    }
+
+    .toggle-input {
+      position: absolute;
+      opacity: 0; width: 0; height: 0;
+    }
+
+    .toggle-track {
+      width: 46px; height: 25px;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+      transition: background var(--tr), border-color var(--tr), box-shadow var(--tr);
+      flex-shrink: 0;
+    }
+
+    .toggle-thumb {
+      width: 17px; height: 17px;
+      border-radius: 50%;
+      background: var(--text-3);
+      position: absolute;
+      top: 3px; left: 3px;
+      transition: transform var(--tr), background var(--tr), box-shadow var(--tr);
+    }
+
+    /* cyan toggle (general, proxy) */
+    .toggle-input:checked ~ .toggle-track {
+      background: var(--accent-dim);
+      border-color: rgba(99,202,255,0.45);
+      box-shadow: 0 0 12px rgba(99,202,255,0.2);
+    }
+    .toggle-input:checked ~ .toggle-track .toggle-thumb {
+      transform: translateX(21px);
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(99,202,255,0.6);
+    }
+
+    /* violet toggle (telegram) */
+    .toggle-input.violet:checked ~ .toggle-track {
+      background: var(--accent-2-dim);
+      border-color: rgba(167,139,250,0.45);
+      box-shadow: 0 0 12px rgba(167,139,250,0.2);
+    }
+    .toggle-input.violet:checked ~ .toggle-track .toggle-thumb {
+      background: var(--accent-2);
+      box-shadow: 0 0 8px rgba(167,139,250,0.6);
+    }
+
+    /* green toggle (proxy) */
+    .toggle-input.green:checked ~ .toggle-track {
+      background: var(--accent-3-dim);
+      border-color: rgba(52,211,153,0.45);
+      box-shadow: 0 0 12px rgba(52,211,153,0.2);
+    }
+    .toggle-input.green:checked ~ .toggle-track .toggle-thumb {
+      background: var(--accent-3);
+      box-shadow: 0 0 8px rgba(52,211,153,0.6);
+      transform: translateX(21px);
+    }
+
+    /* ══════════════════════════════════════════════
+       PROXY PANEL EXTRAS
+    ══════════════════════════════════════════════ */
+    .proxy-info-card {
+      margin-top: 20px;
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: rgba(52,211,153,0.05);
+      border: 1px solid rgba(52,211,153,0.15);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .proxy-info-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .proxy-info-text {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-2);
+      line-height: 1.7;
+      letter-spacing: 0.04em;
+    }
+    .proxy-info-text strong {
+      color: var(--accent-3);
+      font-weight: 500;
+    }
+
+    /* ══════════════════════════════════════════════
+       FOOTER / SAVE
+    ══════════════════════════════════════════════ */
+    .settings-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      border-top: 1px solid var(--border);
+      background: rgba(255,255,255,0.015);
+    }
+
+    .footer-hint {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .save-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 30px;
+      border-radius: 10px;
+      border: 1px solid rgba(99,202,255,0.4);
+      background: linear-gradient(135deg, rgba(99,202,255,0.16), rgba(99,202,255,0.04));
+      color: var(--accent);
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all var(--tr);
+    }
+
+    .save-btn::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(99,202,255,0.14), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.55s ease;
+    }
+
+    .save-btn:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 28px rgba(99,202,255,0.28), 0 0 60px rgba(99,202,255,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+      transform: translateY(-1px);
+    }
+    .save-btn:hover::after { transform: translateX(100%); }
+    .save-btn:active { transform: scale(0.98); }
+
+    /* saved toast */
+    .toast {
+      position: fixed;
+      bottom: 32px; right: 32px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      background: rgba(10,22,40,0.92);
+      border: 1px solid rgba(99,202,255,0.3);
+      backdrop-filter: blur(12px);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(99,202,255,0.12);
+      z-index: 100;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ══════════════════════════════════════════════
+       ANIMATIONS
+    ══════════════════════════════════════════════ */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes riseUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Divider ── */
+    .field-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 6px 0;
+    }
+
+    /* ── Tag ── */
+    .required-tag {
+      font-family: var(--font-mono);
+      font-size: 0.54rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.2);
+      color: var(--danger);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Page Header ──────────────────────────── -->
+  <div class="page-header">
+    <div class="header-icon">⚙️</div>
+    <div>
+      <div class="page-title">Settings</div>
+      <div class="page-sub">CONFIGURE · EEL DESKTOP APPLICATION</div>
+    </div>
+  </div>
+
+  <!-- ── Glass Shell ──────────────────────────── -->
+  <div class="shell">
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="general" role="tab" aria-selected="true" aria-controls="panel-general" onclick="switchTab('general')">
+        <span class="tab-icon">🖥</span> General
+      </button>
+      <button class="tab-btn" data-tab="telegram" role="tab" aria-selected="false" aria-controls="panel-telegram" onclick="switchTab('telegram')">
+        <span class="tab-icon">✈️</span> Telegram
+      </button>
+      <button class="tab-btn" data-tab="proxy" role="tab" aria-selected="false" aria-controls="panel-proxy" onclick="switchTab('proxy')">
+        <span class="tab-icon">🔒</span> Proxy
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         PANEL: GENERAL
+    ════════════════════════════════════════ -->
+    <div class="panel active" id="panel-general" role="tabpanel">
+      <div class="section-heading">
+        <div class="section-badge badge-cyan">🖥</div>
+        <div>
+          <div class="section-title">General Settings</div>
+          <div class="section-desc">STARTUP · PLATFORM DEFAULTS</div>
+        </div>
+      </div>
+
+      <div class="field-grid">
+
+        <!-- Auto-start -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Auto-start Browser</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">Launch browser automatically on app startup</div>
+              </div>
+            </div>
+            <div class="field-hint">LAUNCH BROWSER ON APP OPEN</div>
+          </div>
+          <div class="field-right">
+            <label class="toggle-wrap" for="autoStart">
+              <input class="toggle-input" type="checkbox" id="autoStart" />
+              <div class="toggle-track"><div class="toggle-thumb"></div></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="field-divider"></div>
+
+        <!-- Default Platform -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Default Platform</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">Pre-selected platform in the Quick Launch panel</div>
+              </div>
+            </div>
+            <div class="field-hint">E.G. CHROME, FIREFOX, EDGE</div>
+          </div>
+          <div class="field-right">
+            <input
+              class="glass-input"
+              type="text"
+              id="defaultPlatform"
+              placeholder="chrome"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+
+        <div class="field-divider"></div>
+
+        <!-- Default Country -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Default Country</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">ISO-2 country code used for proxy selection by default</div>
+              </div>
+            </div>
+            <div class="field-hint">ISO-2 CODE · E.G. US, GB, DE</div>
+          </div>
+          <div class="field-right">
+            <input
+              class="glass-input"
+              type="text"
+              id="defaultCountry"
+              placeholder="US"
+              maxlength="2"
+              autocomplete="off"
+              spellcheck="false"
+              style="text-transform:uppercase;width:120px;"
+            />
+          </div>
+        </div>
+
+      </div><!-- /field-grid -->
+    </div><!-- /panel-general -->
+
+    <!-- ════════════════════════════════════════
+         PANEL: TELEGRAM
+    ════════════════════════════════════════ -->
+    <div class="panel" id="panel-telegram" role="tabpanel">
+      <div class="section-heading">
+        <div class="section-badge badge-violet">✈️</div>
+        <div>
+          <div class="section-title">Telegram Settings</div>
+          <div class="section-desc">BOT · NOTIFICATIONS · ALERTS</div>
+        </div>
+      </div>
+
+      <div class="field-grid">
+
+        <!-- Enable Telegram -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Enable Telegram</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">Send real-time alerts and logs via Telegram bot</div>
+              </div>
+            </div>
+            <div class="field-hint">ENABLE BOT NOTIFICATIONS</div>
+          </div>
+          <div class="field-right">
+            <label class="toggle-wrap" for="telegramEnabled">
+              <input class="toggle-input violet" type="checkbox" id="telegramEnabled" />
+              <div class="toggle-track"><div class="toggle-thumb"></div></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="field-divider"></div>
+
+        <!-- Bot Token -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Bot Token</span>
+              <span class="required-tag">Required</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">Obtain from @BotFather on Telegram</div>
+              </div>
+            </div>
+            <div class="field-hint">FROM @BOTFATHER · KEEP SECRET</div>
+          </div>
+          <div class="field-right">
+            <div class="pw-wrap">
+              <input
+                class="glass-input violet"
+                type="password"
+                id="telegramToken"
+                placeholder="123456:ABC-DEF…"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button class="pw-toggle" type="button" id="tokenToggle" aria-label="Show/hide token" title="Toggle visibility">
+                <svg id="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-divider"></div>
+
+        <!-- Chat ID -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Chat ID</span>
+              <span class="required-tag">Required</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">Your personal or group chat ID (use @userinfobot)</div>
+              </div>
+            </div>
+            <div class="field-hint">PERSONAL OR GROUP CHAT ID</div>
+          </div>
+          <div class="field-right">
+            <input
+              class="glass-input violet"
+              type="text"
+              id="telegramChatId"
+              placeholder="-100123456789"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+
+      </div><!-- /field-grid -->
+    </div><!-- /panel-telegram -->
+
+    <!-- ════════════════════════════════════════
+         PANEL: PROXY
+    ════════════════════════════════════════ -->
+    <div class="panel" id="panel-proxy" role="tabpanel">
+      <div class="section-heading">
+        <div class="section-badge badge-green">🔒</div>
+        <div>
+          <div class="section-title">Proxy Settings</div>
+          <div class="section-desc">ROTATION · ANONYMITY · NETWORK</div>
+        </div>
+      </div>
+
+      <div class="field-grid">
+
+        <!-- Proxy Rotation -->
+        <div class="field-row">
+          <div class="field-left">
+            <div class="field-label-wrap">
+              <span class="field-label">Proxy Rotation</span>
+              <div class="tooltip-wrap">
+                <div class="tooltip-icon">?</div>
+                <div class="tooltip-bubble">Rotate proxy IP on each new session automatically</div>
+              </div>
+            </div>
+            <div class="field-hint">AUTO-ROTATE IP PER SESSION</div>
+          </div>
+          <div class="field-right">
+            <label class="toggle-wrap" for="proxyRotation">
+              <input class="toggle-input green" type="checkbox" id="proxyRotation" />
+              <div class="toggle-track"><div class="toggle-thumb"></div></div>
+            </label>
+          </div>
+        </div>
+
+      </div><!-- /field-grid -->
+
+      <!-- Info card -->
+      <div class="proxy-info-card">
+        <div class="proxy-info-icon">ℹ️</div>
+        <div class="proxy-info-text">
+          When <strong>Proxy Rotation</strong> is enabled, a fresh proxy endpoint is assigned to each browser session on launch.
+          Proxy pool management and credentials are handled by the Python backend via <strong>eel.get_proxy_pool()</strong>.
+          Ensure your proxy list is configured in <strong>config/proxies.txt</strong> before enabling this option.
+        </div>
+      </div>
+    </div><!-- /panel-proxy -->
+
+    <!-- ── Footer / Save ────────────────────── -->
+    <div class="settings-footer">
+      <div class="footer-hint">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        CHANGES ARE APPLIED IMMEDIATELY AFTER SAVING
+      </div>
+      <button class="save-btn" id="saveSettingsBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Save All Settings
+      </button>
+    </div>
+
+  </div><!-- /shell -->
+
+  <!-- ── Toast notification ─────────────────── -->
+  <div class="toast" id="saveToast">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    Settings saved successfully
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SCRIPT
+  ════════════════════════════════════════════ -->
+  <script>
+    /* ── Tab switching ───────────────────────── */
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === name);
+        btn.setAttribute('aria-selected', btn.dataset.tab === name);
+      });
+      document.querySelectorAll('.panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `panel-${name}`);
+      });
+    }
+
+    /* ── Password visibility toggle ─────────── */
+    const tokenToggle = document.getElementById('tokenToggle');
+    const tokenInput  = document.getElementById('telegramToken');
+    const eyeIcon     = document.getElementById('eye-icon');
+
+    const EYE_OPEN   = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+    const EYE_CLOSED = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+
+    tokenToggle.addEventListener('click', () => {
+      const show = tokenInput.type === 'password';
+      tokenInput.type = show ? 'text' : 'password';
+      eyeIcon.innerHTML = show ? EYE_CLOSED : EYE_OPEN;
+    });
+
+    /* ── Country input force uppercase ──────── */
+    document.getElementById('defaultCountry').addEventListener('input', function () {
+      const pos = this.selectionStart;
+      this.value = this.value.toUpperCase();
+      this.setSelectionRange(pos, pos);
+    });
+
+    /* ── Save button ─────────────────────────
+       Wire this to Python via:
+         eel.save_settings(payload)()
+    ──────────────────────────────────────── */
+    document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+      const payload = {
+        general: {
+          autoStart:       document.getElementById('autoStart').checked,
+          defaultPlatform: document.getElementById('defaultPlatform').value.trim(),
+          defaultCountry:  document.getElementById('defaultCountry').value.trim().toUpperCase(),
+        },
+        telegram: {
+          enabled:  document.getElementById('telegramEnabled').checked,
+          token:    document.getElementById('telegramToken').value.trim(),
+          chatId:   document.getElementById('telegramChatId').value.trim(),
+        },
+        proxy: {
+          rotation: document.getElementById('proxyRotation').checked,
+        },
+      };
+
+      // ── Eel call (uncomment when wiring to Python) ──
+      // eel.save_settings(payload)();
+
+      console.log('[settings] save payload:', payload);
+      showToast();
+    });
+
+    /* ── Toast helper ────────────────────────── */
+    let toastTimer = null;
+    function showToast() {
+      const toast = document.getElementById('saveToast');
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+  </script>
+</body>
+</html>

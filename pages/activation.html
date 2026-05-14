@@ -1,0 +1,361 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  #activation-root {
+    --cyan:      #00D4FF;
+    --cyan-dim:  rgba(0, 212, 255, 0.18);
+    --cyan-glow: rgba(0, 212, 255, 0.45);
+    --blue:      #3B6FFF;
+    --void:      #04070F;
+    --surface:   rgba(10, 18, 38, 0.85);
+    --border:    rgba(0, 212, 255, 0.18);
+    --text:      #DDE8FF;
+    --muted:     #4A5E88;
+
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+    font-family: 'Syne', sans-serif;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Ambient background ──────────────────────── */
+  #activation-root::before,
+  #activation-root::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(110px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  #activation-root::before {
+    width: 520px; height: 520px;
+    background: radial-gradient(circle, rgba(0,100,255,0.22), transparent 70%);
+    top: -160px; left: -140px;
+    animation: floatA 14s ease-in-out infinite alternate;
+  }
+  #activation-root::after {
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(0,212,255,0.15), transparent 70%);
+    bottom: -120px; right: -100px;
+    animation: floatB 18s ease-in-out infinite alternate;
+  }
+  @keyframes floatA {
+    from { transform: translate(0,0); }
+    to   { transform: translate(30px, 40px); }
+  }
+  @keyframes floatB {
+    from { transform: translate(0,0); }
+    to   { transform: translate(-24px, -32px); }
+  }
+
+  /* ── Grid texture ────────────────────────────── */
+  .act-grid {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+
+  /* ── Glass card ──────────────────────────────── */
+  .act-card {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 420px;
+    background: var(--surface);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 48px 44px 40px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 32px 80px rgba(0,0,0,0.55),
+      0 0 60px rgba(0,212,255,0.06);
+    opacity: 0; /* GSAP will fade this in */
+  }
+
+  /* top glowing border line */
+  .act-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.7;
+    border-radius: 99px;
+  }
+
+  /* ── Scanning line ───────────────────────────── */
+  .act-scan {
+    position: absolute; left: 0; right: 0; height: 1px; top: 0;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.35), transparent);
+    animation: scan 5s linear infinite;
+    pointer-events: none; border-radius: 99px;
+  }
+  @keyframes scan {
+    0%   { top: 0%;   opacity: 0; }
+    5%   { opacity: 1; }
+    95%  { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* ── Icon badge ──────────────────────────────── */
+  .act-badge {
+    width: 58px; height: 58px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(59,111,255,0.15));
+    border: 1px solid rgba(0,212,255,0.28);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+    box-shadow: 0 0 24px rgba(0,212,255,0.18);
+  }
+
+  /* ── Typography ──────────────────────────────── */
+  .act-title {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .act-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 32px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+  }
+
+  /* ── Input ───────────────────────────────────── */
+  .act-input-wrap {
+    position: relative;
+    margin-bottom: 14px;
+  }
+  .act-input-wrap svg {
+    position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px;
+    color: var(--muted); pointer-events: none;
+    transition: color 0.2s;
+  }
+  #licenseKey {
+    width: 100%;
+    background: rgba(0,212,255,0.04);
+    border: 1px solid rgba(0,212,255,0.15);
+    border-radius: 11px;
+    padding: 13px 16px 13px 44px;
+    color: var(--cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    outline: none;
+    transition: border-color 0.22s, box-shadow 0.22s, background 0.22s;
+    caret-color: var(--cyan);
+  }
+  #licenseKey::placeholder {
+    color: var(--muted);
+    letter-spacing: 0.3px;
+    font-weight: 300;
+  }
+  #licenseKey:focus {
+    border-color: rgba(0,212,255,0.5);
+    background: rgba(0,212,255,0.07);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.1), 0 0 16px rgba(0,212,255,0.08);
+  }
+  #licenseKey:focus + svg { color: var(--cyan); } /* won't work with before, handled via JS */
+
+  /* ── Button ──────────────────────────────────── */
+  #activateBtn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 11px;
+    background: linear-gradient(135deg, #00BFFF, #3B6FFF);
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.25s;
+    box-shadow: 0 0 24px rgba(0,191,255,0.28);
+  }
+  #activateBtn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+    border-radius: inherit;
+  }
+  #activateBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 40px rgba(0,191,255,0.55), 0 8px 24px rgba(0,0,0,0.35);
+  }
+  #activateBtn:active {
+    transform: translateY(0);
+    box-shadow: 0 0 20px rgba(0,191,255,0.3);
+  }
+
+  /* shimmer sweep on hover */
+  #activateBtn .btn-shimmer {
+    position: absolute; top: 0; left: -80%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+    pointer-events: none;
+  }
+  #activateBtn:hover .btn-shimmer { left: 160%; }
+
+  /* ── Divider ─────────────────────────────────── */
+  .act-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 22px 0 16px;
+  }
+  .act-divider span {
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.12), transparent);
+  }
+  .act-divider small {
+    font-size: 11px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  /* ── Demo hint ───────────────────────────────── */
+  .act-hint {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .act-hint span {
+    color: #FFB830;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .act-hint span:hover { color: #FFD060; }
+
+  /* ── Status corner ───────────────────────────── */
+  .act-corner {
+    position: absolute; bottom: 18px; right: 22px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .act-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #00FFB3;
+    box-shadow: 0 0 6px #00FFB3;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+</style>
+
+<!-- Grid texture -->
+<div class="act-grid"></div>
+
+<!-- Activation Card -->
+<div class="act-card" id="act-card">
+  <div class="act-scan"></div>
+
+  <!-- Lock icon badge -->
+  <div class="act-badge">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+         stroke="#00D4FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+  </div>
+
+  <div class="act-title">🔐 License Activation</div>
+  <div class="act-sub">Enter your enterprise key to unlock<br>the full AppointmentBot suite.</div>
+
+  <!-- Input -->
+  <div class="act-input-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778
+               5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+    </svg>
+    <input type="text" id="licenseKey"
+           placeholder="Enter your license key"
+           autocomplete="off" spellcheck="false">
+  </div>
+
+  <!-- Activate button -->
+  <button id="activateBtn">
+    <div class="btn-shimmer"></div>
+    Activate
+  </button>
+
+  <!-- Divider + hint -->
+  <div class="act-divider">
+    <span></span><small>demo access</small><span></span>
+  </div>
+  <div class="act-hint">
+    Demo key:&nbsp;<span id="demo-key-hint">ENTERPRISE2025</span>
+  </div>
+
+  <!-- Corner status -->
+  <div class="act-corner">
+    <div class="act-dot"></div>
+    SECURE CONNECTION
+  </div>
+</div>
+
+<script>
+  (function () {
+    /* ── GSAP card entrance ─────────────────────── */
+    if (typeof gsap !== 'undefined') {
+      gsap.fromTo('#act-card',
+        { opacity: 0, y: 28, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1,
+          duration: 0.65, ease: 'power3.out', delay: 0.1 }
+      );
+    } else {
+      /* fallback if GSAP not yet loaded */
+      var card = document.getElementById('act-card');
+      if (card) { card.style.opacity = '1'; }
+    }
+
+    /* ── Click demo key to auto-fill input ─────── */
+    var hint = document.getElementById('demo-key-hint');
+    var input = document.getElementById('licenseKey');
+    if (hint && input) {
+      hint.addEventListener('click', function () {
+        input.value = 'ENTERPRISE2025';
+        input.focus();
+        if (typeof gsap !== 'undefined') {
+          gsap.fromTo(hint,
+            { color: '#FFD060' },
+            { color: '#FFB830', duration: 0.6 }
+          );
+        }
+      });
+    }
+
+    /* ── Input icon color sync ──────────────────── */
+    if (input) {
+      var icon = input.parentElement.querySelector('svg');
+      input.addEventListener('focus', function () {
+        if (icon) icon.style.color = '#00D4FF';
+      });
+      input.addEventListener('blur', function () {
+        if (icon) icon.style.color = '';
+      });
+    }
+  })();
+</script>

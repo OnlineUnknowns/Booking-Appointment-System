@@ -1,0 +1,675 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+  #accounts-root {
+    --cyan:        #00D4FF;
+    --cyan-dim:    rgba(0, 212, 255, 0.10);
+    --cyan-border: rgba(0, 212, 255, 0.18);
+    --violet:      #7B5CFF;
+    --red:         #FF4C6A;
+    --red-dim:     rgba(255, 76, 106, 0.12);
+    --emerald:     #00FFB3;
+    --surface:     rgba(10, 18, 38, 0.80);
+    --row-odd:     rgba(0, 212, 255, 0.025);
+    --row-hover:   rgba(0, 212, 255, 0.06);
+    --text:        #DDE8FF;
+    --muted:       #4A5E88;
+    --muted-light: #7E8FB5;
+
+    font-family: 'Syne', sans-serif;
+    color: var(--text);
+    padding: 4px 0 32px;
+    min-height: 100%;
+  }
+
+  /* ── Page header ─────────────────────────────── */
+  .acc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 28px;
+    opacity: 0; /* GSAP */
+  }
+  .acc-header-left { display: flex; flex-direction: column; gap: 3px; }
+  .acc-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 400;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--cyan); opacity: 0.7;
+  }
+  .acc-title {
+    font-size: 26px; font-weight: 800;
+    letter-spacing: -0.6px;
+    background: linear-gradient(90deg, #DDE8FF 40%, var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .acc-subtitle {
+    font-size: 12.5px; color: var(--muted-light);
+    font-family: 'JetBrains Mono', monospace; font-weight: 300;
+  }
+
+  /* ── Add button ──────────────────────────────── */
+  #addAccountBtn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 20px;
+    background: linear-gradient(135deg, #00BFFF, #3B6FFF);
+    border: none; border-radius: 11px;
+    color: #fff; font-family: 'Syne', sans-serif;
+    font-size: 13.5px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.2px;
+    position: relative; overflow: hidden;
+    transition: transform 0.18s, box-shadow 0.22s;
+    box-shadow: 0 0 22px rgba(0,191,255,0.25);
+    white-space: nowrap;
+  }
+  #addAccountBtn .btn-shimmer {
+    position: absolute; top: 0; left: -80%; width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+    transform: skewX(-20deg); transition: left 0.45s ease; pointer-events: none;
+  }
+  #addAccountBtn:hover { transform: translateY(-2px); box-shadow: 0 0 36px rgba(0,191,255,0.5); }
+  #addAccountBtn:hover .btn-shimmer { left: 160%; }
+  #addAccountBtn:active { transform: translateY(0); }
+  #addAccountBtn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  /* ── Stats row ───────────────────────────────── */
+  .acc-stats {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 22px;
+    opacity: 0; /* GSAP */
+  }
+  .stat-chip {
+    display: flex; align-items: center; gap: 9px;
+    background: var(--surface);
+    border: 1px solid var(--cyan-border);
+    border-radius: 10px; padding: 10px 16px;
+    backdrop-filter: blur(12px);
+  }
+  .stat-chip-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    box-shadow: 0 0 6px currentColor;
+    flex-shrink: 0;
+  }
+  .stat-chip-val {
+    font-size: 16px; font-weight: 700; line-height: 1;
+  }
+  .stat-chip-lbl {
+    font-size: 11px; color: var(--muted-light);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+
+  /* ── Glass card ──────────────────────────────── */
+  .acc-card {
+    background: var(--surface);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid var(--cyan-border);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    position: relative;
+    opacity: 0; /* GSAP */
+  }
+  .acc-card::before {
+    content: '';
+    position: absolute; top: 0; left: 8%; right: 8%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.5;
+  }
+
+  /* ── Toolbar ─────────────────────────────────── */
+  .acc-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    padding: 18px 22px;
+    border-bottom: 1px solid rgba(0,212,255,0.08);
+  }
+  .acc-search-wrap { position: relative; }
+  .acc-search-wrap svg {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    width: 15px; height: 15px; color: var(--muted); pointer-events: none;
+  }
+  .acc-search {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid rgba(0,212,255,0.12);
+    border-radius: 9px;
+    padding: 9px 14px 9px 38px;
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; outline: none; width: 230px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .acc-search::placeholder { color: var(--muted); }
+  .acc-search:focus {
+    border-color: rgba(0,212,255,0.4);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.07);
+  }
+  .acc-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .acc-count span { color: var(--cyan); font-weight: 500; }
+
+  /* ── Table ───────────────────────────────────── */
+  .acc-table-wrap { overflow-x: auto; }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  thead tr {
+    border-bottom: 1px solid rgba(0,212,255,0.1);
+  }
+  th {
+    padding: 13px 18px;
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted-light);
+    white-space: nowrap;
+    user-select: none;
+  }
+  th:first-child { padding-left: 22px; }
+  th:last-child  { text-align: center; }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background 0.16s;
+    cursor: default;
+  }
+  tbody tr:nth-child(odd)  { background: var(--row-odd); }
+  tbody tr:nth-child(even) { background: transparent; }
+  tbody tr:hover           { background: var(--row-hover); }
+
+  td {
+    padding: 13px 18px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  td:first-child { padding-left: 22px; }
+  td:last-child  { text-align: center; }
+
+  /* avatar + name cell */
+  .cell-name {
+    display: flex; align-items: center; gap: 11px;
+  }
+  .cell-avatar {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(0,212,255,0.2);
+  }
+  .cell-name-text { font-weight: 600; letter-spacing: -0.2px; }
+  .cell-name-id   { font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+
+  /* email cell */
+  .cell-email { color: var(--muted-light); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+
+  /* platform badge */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.3px;
+    border: 1px solid transparent;
+  }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .badge-visa   { background: rgba(0,212,255,0.1);  border-color: rgba(0,212,255,0.2);  color: var(--cyan);    }
+  .badge-visa   .badge-dot { background: var(--cyan);   box-shadow: 0 0 5px var(--cyan);   }
+  .badge-meta   { background: rgba(123,92,255,0.1); border-color: rgba(123,92,255,0.2); color: #9F8FFF; }
+  .badge-meta   .badge-dot { background: #9F8FFF;        box-shadow: 0 0 5px #9F8FFF;        }
+  .badge-other  { background: rgba(255,184,48,0.1); border-color: rgba(255,184,48,0.2); color: #FFB830; }
+  .badge-other  .badge-dot { background: #FFB830;         box-shadow: 0 0 5px #FFB830;         }
+
+  /* country flag */
+  .cell-country { display: flex; align-items: center; gap: 7px; color: var(--muted-light); font-size: 13px; }
+  .flag { font-size: 16px; line-height: 1; }
+
+  /* date */
+  .cell-date { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+
+  /* delete button */
+  .btn-delete {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    background: var(--red-dim);
+    border: 1px solid rgba(255,76,106,0.22);
+    border-radius: 8px;
+    color: var(--red); font-family: 'Syne', sans-serif;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, transform 0.14s, box-shadow 0.18s;
+  }
+  .btn-delete svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .btn-delete:hover {
+    background: rgba(255,76,106,0.22);
+    border-color: rgba(255,76,106,0.45);
+    box-shadow: 0 0 14px rgba(255,76,106,0.2);
+    transform: scale(1.04);
+  }
+  .btn-delete:active { transform: scale(0.97); }
+
+  /* ── Loading skeleton ────────────────────────── */
+  .skeleton-row td { padding: 14px 18px; }
+  .skeleton-row td:first-child { padding-left: 22px; }
+  .skel {
+    height: 13px; border-radius: 5px;
+    background: linear-gradient(90deg,
+      rgba(0,212,255,0.05) 25%,
+      rgba(0,212,255,0.10) 50%,
+      rgba(0,212,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s infinite;
+  }
+  .skel-avatar {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: linear-gradient(90deg,
+      rgba(0,212,255,0.06) 25%,
+      rgba(0,212,255,0.12) 50%,
+      rgba(0,212,255,0.06) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .skel-w40 { width: 40%; }
+  .skel-w60 { width: 60%; }
+  .skel-w70 { width: 70%; }
+  .skel-w30 { width: 30%; }
+  .skel-w50 { width: 50%; }
+
+  /* ── Empty state ─────────────────────────────── */
+  .acc-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 60px 20px; gap: 14px;
+    color: var(--muted);
+  }
+  .acc-empty svg { width: 44px; height: 44px; opacity: 0.3; }
+  .acc-empty p { font-size: 14px; }
+  .acc-empty small { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* ── Pagination ──────────────────────────────── */
+  .acc-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+    padding: 14px 22px;
+    border-top: 1px solid rgba(0,212,255,0.07);
+  }
+  .acc-footer-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+  .acc-footer-info span { color: var(--cyan); }
+  .acc-pagination { display: flex; gap: 6px; }
+  .pg-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,212,255,0.05);
+    border: 1px solid rgba(0,212,255,0.12);
+    border-radius: 7px; cursor: pointer;
+    color: var(--muted-light); font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.16s;
+  }
+  .pg-btn:hover, .pg-btn.active {
+    background: rgba(0,212,255,0.12);
+    border-color: rgba(0,212,255,0.35);
+    color: var(--cyan);
+  }
+  .pg-btn svg { width: 13px; height: 13px; }
+
+  /* ── Confirm toast ───────────────────────────── */
+  #acc-confirm-toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: rgba(10,18,38,0.96);
+    border: 1px solid rgba(255,76,106,0.3);
+    border-radius: 13px;
+    padding: 16px 22px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 0 32px rgba(255,76,106,0.15), 0 16px 40px rgba(0,0,0,0.5);
+    backdrop-filter: blur(20px);
+    z-index: 999; min-width: 320px;
+    transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s;
+    opacity: 0; pointer-events: none;
+  }
+  #acc-confirm-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1; pointer-events: all;
+  }
+  .toast-icon {
+    width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+    background: rgba(255,76,106,0.14);
+    border: 1px solid rgba(255,76,106,0.25);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .toast-icon svg { width: 17px; height: 17px; color: var(--red); }
+  .toast-body { flex: 1; }
+  .toast-body strong { display: block; font-size: 13.5px; margin-bottom: 2px; }
+  .toast-body small {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-light);
+  }
+  .toast-actions { display: flex; gap: 8px; }
+  .toast-cancel {
+    padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted-light); font-size: 12.5px; font-family: 'Syne', sans-serif;
+    font-weight: 600; transition: background 0.16s;
+  }
+  .toast-cancel:hover { background: rgba(255,255,255,0.09); }
+  .toast-confirm {
+    padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    background: rgba(255,76,106,0.18); border: 1px solid rgba(255,76,106,0.3);
+    color: var(--red); font-size: 12.5px; font-family: 'Syne', sans-serif;
+    font-weight: 700; transition: all 0.16s;
+  }
+  .toast-confirm:hover { background: rgba(255,76,106,0.28); box-shadow: 0 0 12px rgba(255,76,106,0.2); }
+</style>
+
+<!-- ═══ ACCOUNTS ROOT ══════════════════════════════ -->
+<div id="accounts-root">
+
+  <!-- ── Header ────────────────────────────────── -->
+  <div class="acc-header" id="acc-header">
+    <div class="acc-header-left">
+      <span class="acc-eyebrow">Management Console</span>
+      <div class="acc-title">Account Manager</div>
+      <div class="acc-subtitle">Manage, monitor and configure user accounts</div>
+    </div>
+    <button id="addAccountBtn">
+      <div class="btn-shimmer"></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Add Account
+    </button>
+  </div>
+
+  <!-- ── Stats chips ────────────────────────────── -->
+  <div class="acc-stats" id="acc-stats">
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="color:var(--emerald);background:var(--emerald);"></div>
+      <div>
+        <div class="stat-chip-val" style="color:var(--emerald);" id="stat-total">—</div>
+        <div class="stat-chip-lbl">Total Accounts</div>
+      </div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="color:var(--cyan);background:var(--cyan);"></div>
+      <div>
+        <div class="stat-chip-val" style="color:var(--cyan);" id="stat-active">—</div>
+        <div class="stat-chip-lbl">Active</div>
+      </div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="color:#FFB830;background:#FFB830;"></div>
+      <div>
+        <div class="stat-chip-val" style="color:#FFB830;" id="stat-platforms">—</div>
+        <div class="stat-chip-lbl">Platforms</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Glass card ────────────────────────────── -->
+  <div class="acc-card" id="acc-card">
+
+    <!-- toolbar -->
+    <div class="acc-toolbar">
+      <div class="acc-search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input class="acc-search" id="acc-search-input" type="text" placeholder="Search accounts…">
+      </div>
+      <div class="acc-count">Showing <span id="acc-showing">0</span> of <span id="acc-total-count">0</span> accounts</div>
+    </div>
+
+    <!-- table -->
+    <div class="acc-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Platform</th>
+            <th>Country</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="accountsTableBody">
+          <!-- Loading skeleton (6 rows) -->
+          <tr class="skeleton-row">
+            <td><div style="display:flex;align-items:center;gap:11px"><div class="skel-avatar"></div><div class="skel skel-w60"></div></div></td>
+            <td><div class="skel skel-w70"></div></td>
+            <td><div class="skel skel-w40"></div></td>
+            <td><div class="skel skel-w30"></div></td>
+            <td><div class="skel skel-w50"></div></td>
+            <td><div class="skel skel-w40" style="margin:auto"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div style="display:flex;align-items:center;gap:11px"><div class="skel-avatar"></div><div class="skel skel-w50"></div></div></td>
+            <td><div class="skel skel-w60"></div></td>
+            <td><div class="skel skel-w30"></div></td>
+            <td><div class="skel skel-w40"></div></td>
+            <td><div class="skel skel-w50"></div></td>
+            <td><div class="skel skel-w40" style="margin:auto"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div style="display:flex;align-items:center;gap:11px"><div class="skel-avatar"></div><div class="skel skel-w70"></div></div></td>
+            <td><div class="skel skel-w50"></div></td>
+            <td><div class="skel skel-w40"></div></td>
+            <td><div class="skel skel-w30"></div></td>
+            <td><div class="skel skel-w60"></div></td>
+            <td><div class="skel skel-w40" style="margin:auto"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div style="display:flex;align-items:center;gap:11px"><div class="skel-avatar"></div><div class="skel skel-w60"></div></div></td>
+            <td><div class="skel skel-w70"></div></td>
+            <td><div class="skel skel-w30"></div></td>
+            <td><div class="skel skel-w50"></div></td>
+            <td><div class="skel skel-w40"></div></td>
+            <td><div class="skel skel-w40" style="margin:auto"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div style="display:flex;align-items:center;gap:11px"><div class="skel-avatar"></div><div class="skel skel-w50"></div></div></td>
+            <td><div class="skel skel-w60"></div></td>
+            <td><div class="skel skel-w40"></div></td>
+            <td><div class="skel skel-w30"></div></td>
+            <td><div class="skel skel-w70"></div></td>
+            <td><div class="skel skel-w40" style="margin:auto"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div style="display:flex;align-items:center;gap:11px"><div class="skel-avatar"></div><div class="skel skel-w70"></div></div></td>
+            <td><div class="skel skel-w40"></div></td>
+            <td><div class="skel skel-w50"></div></td>
+            <td><div class="skel skel-w30"></div></td>
+            <td><div class="skel skel-w60"></div></td>
+            <td><div class="skel skel-w40" style="margin:auto"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- footer / pagination -->
+    <div class="acc-footer">
+      <div class="acc-footer-info">Page <span>1</span> of <span id="acc-page-total">1</span></div>
+      <div class="acc-pagination">
+        <button class="pg-btn" title="Previous">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <button class="pg-btn active">1</button>
+        <button class="pg-btn">2</button>
+        <button class="pg-btn">3</button>
+        <button class="pg-btn" title="Next">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div><!-- /.acc-card -->
+</div><!-- /#accounts-root -->
+
+<!-- ── Confirm delete toast ───────────────────── -->
+<div id="acc-confirm-toast">
+  <div class="toast-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6"/><path d="M14 11v6"/>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>
+  </div>
+  <div class="toast-body">
+    <strong>Delete account?</strong>
+    <small id="toast-account-label">This action cannot be undone.</small>
+  </div>
+  <div class="toast-actions">
+    <button class="toast-cancel" id="toast-cancel-btn">Cancel</button>
+    <button class="toast-confirm" id="toast-confirm-btn">Delete</button>
+  </div>
+</div>
+
+<script>
+(function () {
+
+  /* ── GSAP entrance ──────────────────────────── */
+  if (typeof gsap !== 'undefined') {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    tl.fromTo('#acc-header', { opacity: 0, y: -16 }, { opacity: 1, y: 0, duration: 0.45 })
+      .fromTo('#acc-stats',  { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.38 }, '-=0.25')
+      .fromTo('#acc-card',   { opacity: 0, y: 20  }, { opacity: 1, y: 0, duration: 0.45 }, '-=0.22');
+  } else {
+    ['acc-header','acc-stats','acc-card'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.opacity = '1';
+    });
+  }
+
+  /* ── Confirm-delete toast logic ─────────────── */
+  var pendingDeleteId   = null;
+  var toast             = document.getElementById('acc-confirm-toast');
+  var toastLabel        = document.getElementById('toast-account-label');
+  var toastCancelBtn    = document.getElementById('toast-cancel-btn');
+  var toastConfirmBtn   = document.getElementById('toast-confirm-btn');
+
+  /* Global hook — called from main.js-generated rows */
+  window._requestDeleteAccount = function (id, label) {
+    pendingDeleteId = id;
+    if (toastLabel) toastLabel.textContent = label ? ('Remove "' + label + '"?') : 'This action cannot be undone.';
+    if (toast) toast.classList.add('show');
+  };
+
+  if (toastCancelBtn) {
+    toastCancelBtn.addEventListener('click', function () {
+      pendingDeleteId = null;
+      if (toast) toast.classList.remove('show');
+    });
+  }
+
+  if (toastConfirmBtn) {
+    toastConfirmBtn.addEventListener('click', function () {
+      if (pendingDeleteId !== null && typeof deleteAccountById === 'function') {
+        deleteAccountById(pendingDeleteId);
+      }
+      pendingDeleteId = null;
+      if (toast) toast.classList.remove('show');
+    });
+  }
+
+  /* Close on outside click */
+  document.addEventListener('click', function (e) {
+    if (toast && toast.classList.contains('show') &&
+        !toast.contains(e.target) &&
+        !e.target.classList.contains('btn-delete')) {
+      toast.classList.remove('show');
+      pendingDeleteId = null;
+    }
+  });
+
+  /* ── Live search filter ─────────────────────── */
+  var searchInput = document.getElementById('acc-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      var q = this.value.toLowerCase().trim();
+      var rows = document.querySelectorAll('#accountsTableBody tr:not(.skeleton-row)');
+      var visible = 0;
+      rows.forEach(function (row) {
+        var text = row.textContent.toLowerCase();
+        var match = q === '' || text.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      var showEl = document.getElementById('acc-showing');
+      if (showEl) showEl.textContent = visible;
+    });
+  }
+
+  /* ── Helper: build a platform badge ─────────── */
+  window.buildPlatformBadge = function (platform) {
+    var cls   = 'badge-other';
+    var label = platform || 'Other';
+    var lc    = (platform || '').toLowerCase();
+    if (lc.includes('visa') || lc.includes('appointment'))  cls = 'badge-visa';
+    else if (lc.includes('meta') || lc.includes('facebook')) cls = 'badge-meta';
+    return '<span class="badge ' + cls + '"><span class="badge-dot"></span>' + label + '</span>';
+  };
+
+  /* ── Helper: build a delete button ──────────── */
+  window.buildDeleteBtn = function (id, name) {
+    var safeName = (name || '').replace(/"/g, '&quot;');
+    return '<button class="btn-delete" onclick="window._requestDeleteAccount(' + id + ', \'' + safeName + '\')">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+      + '<polyline points="3 6 5 6 21 6"/>'
+      + '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>'
+      + '<path d="M10 11v6"/><path d="M14 11v6"/>'
+      + '</svg>Delete</button>';
+  };
+
+  /* ── Helper: build avatar initials ──────────── */
+  window.buildAvatar = function (name) {
+    var initials = (name || '?').split(' ').map(function(w){ return w[0]; }).slice(0,2).join('').toUpperCase();
+    return '<div class="cell-avatar">' + initials + '</div>';
+  };
+
+  /* ── Helper: update stat counters ───────────── */
+  window.updateAccountStats = function (total, active, platforms) {
+    var t = document.getElementById('stat-total');
+    var a = document.getElementById('stat-active');
+    var p = document.getElementById('stat-platforms');
+    if (t) t.textContent = total    !== undefined ? total    : '—';
+    if (a) a.textContent = active   !== undefined ? active   : '—';
+    if (p) p.textContent = platforms !== undefined ? platforms : '—';
+    var s  = document.getElementById('acc-showing');
+    var tc = document.getElementById('acc-total-count');
+    if (s)  s.textContent  = total !== undefined ? total : '0';
+    if (tc) tc.textContent = total !== undefined ? total : '0';
+  };
+
+  /* ── Helper: row GSAP entrance (called from main.js after populating rows) */
+  window.animateTableRows = function () {
+    if (typeof gsap === 'undefined') return;
+    var rows = document.querySelectorAll('#accountsTableBody tr:not(.skeleton-row)');
+    gsap.fromTo(rows,
+      { opacity: 0, x: -12 },
+      { opacity: 1, x: 0, duration: 0.32, stagger: 0.04, ease: 'power2.out' }
+    );
+  };
+
+})();
+</script>

@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OnlineUnknown — Launch Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --neon-green:  #00ff88;
+      --neon-red:    #ff3355;
+      --neon-blue:   #00cfff;
+      --neon-yellow: #ffe600;
+      --glass-bg:    rgba(10, 18, 30, 0.72);
+      --glass-border:rgba(0, 207, 255, 0.18);
+      --panel-bg:    rgba(5, 12, 22, 0.85);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #020810;
+      font-family: 'Rajdhani', sans-serif;
+      color: #c8e0f4;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated grid background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,207,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,207,255,.04) 1px, transparent 1px);
+      background-size: 44px 44px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Neon orbs ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: .28;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 520px; height: 520px; background: #003dff; top: -160px; left: -160px; }
+    .orb-2 { width: 420px; height: 420px; background: #00ff88; bottom: -120px; right: -80px;  animation: drift 8s ease-in-out infinite alternate; }
+    .orb-3 { width: 280px; height: 280px; background: #ff3355; top: 40%;    right: 30%;      animation: drift 11s ease-in-out infinite alternate-reverse; }
+
+    @keyframes drift {
+      from { transform: translateY(0px) scale(1); }
+      to   { transform: translateY(40px) scale(1.06); }
+    }
+
+    /* ── Glass card ── */
+    .glass {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      box-shadow: 0 0 40px rgba(0,207,255,.06), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--neon-blue);
+      text-shadow: 0 0 10px rgba(0,207,255,.6);
+    }
+
+    /* ── Custom select ── */
+    select {
+      appearance: none;
+      background: rgba(0,207,255,.06);
+      border: 1px solid rgba(0,207,255,.25);
+      border-radius: 8px;
+      padding: 9px 36px 9px 12px;
+      color: #c8e0f4;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: .95rem;
+      font-weight: 500;
+      width: 100%;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8'%3E%3Cpath d='M0 0l7 8 7-8' fill='none' stroke='%2300cfff' stroke-width='1.5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    select:focus { border-color: var(--neon-blue); box-shadow: 0 0 12px rgba(0,207,255,.3); }
+    select option { background: #0a1220; }
+
+    /* ── Custom slider ── */
+    .slider-wrap { position: relative; }
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(0,207,255,.15);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--neon-blue);
+      box-shadow: 0 0 14px var(--neon-blue), 0 0 4px #fff;
+      border: 2px solid rgba(255,255,255,.4);
+      transition: transform .15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+    input[type=range]::-moz-range-thumb {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--neon-blue);
+      box-shadow: 0 0 14px var(--neon-blue);
+      border: 2px solid rgba(255,255,255,.4);
+      cursor: pointer;
+    }
+
+    /* ── Checkbox ── */
+    .neon-check { position: relative; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .neon-check input[type=checkbox] { display: none; }
+    .neon-check .box {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(0,207,255,.4);
+      border-radius: 5px;
+      background: rgba(0,207,255,.06);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+      flex-shrink: 0;
+    }
+    .neon-check input:checked + .box {
+      border-color: var(--neon-green);
+      background: rgba(0,255,136,.12);
+      box-shadow: 0 0 10px rgba(0,255,136,.4);
+    }
+    .neon-check input:checked + .box::after {
+      content: '';
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      background: var(--neon-green);
+      box-shadow: 0 0 6px var(--neon-green);
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%;
+      padding: 13px 20px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .2s, filter .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,.08);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .btn:hover::before { opacity: 1; }
+    .btn:active { transform: scale(.97); }
+
+    /* Green start */
+    #startLaunchBtn {
+      background: linear-gradient(135deg, #00b85a, #00ff88 120%);
+      color: #002a14;
+      box-shadow: 0 0 24px rgba(0,255,136,.35);
+    }
+    #startLaunchBtn:hover { box-shadow: 0 0 36px rgba(0,255,136,.55); transform: translateY(-2px); }
+
+    /* Pulse ring on start button */
+    #startLaunchBtn.pulse::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 14px;
+      border: 2px solid var(--neon-green);
+      animation: pulse-ring 1.2s ease-out infinite;
+    }
+    @keyframes pulse-ring {
+      0%   { opacity: .8; transform: scale(1); }
+      100% { opacity: 0;  transform: scale(1.08); }
+    }
+
+    /* Red stop */
+    #stopAllBtn {
+      background: linear-gradient(135deg, #8b0022, #ff3355 120%);
+      color: #fff;
+      box-shadow: 0 0 24px rgba(255,51,85,.3);
+    }
+    #stopAllBtn:hover { box-shadow: 0 0 36px rgba(255,51,85,.5); transform: translateY(-2px); }
+
+    /* ── Progress bars ── */
+    .prog-track {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,.07);
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width .6s ease;
+    }
+    .prog-cpu  { background: linear-gradient(90deg, #00cfff, #0088ff); box-shadow: 0 0 8px rgba(0,207,255,.6); }
+    .prog-mem  { background: linear-gradient(90deg, #00ff88, #00cfaa); box-shadow: 0 0 8px rgba(0,255,136,.6); }
+
+    /* ── Table ── */
+    table { border-collapse: collapse; width: 100%; }
+    thead th {
+      font-size: .72rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(0,207,255,.7);
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,207,255,.12);
+      font-weight: 600;
+      text-align: left;
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .15s;
+    }
+    tbody tr:hover { background: rgba(0,207,255,.05); }
+    tbody td {
+      padding: 11px 12px;
+      font-size: .875rem;
+      font-family: 'Share Tech Mono', monospace;
+      vertical-align: middle;
+    }
+
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-size: .7rem;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .badge-active  { background: rgba(0,255,136,.15); color: var(--neon-green);  border: 1px solid rgba(0,255,136,.3); }
+    .badge-idle    { background: rgba(0,207,255,.12); color: var(--neon-blue);   border: 1px solid rgba(0,207,255,.3); }
+    .badge-err     { background: rgba(255,51,85,.15);  color: var(--neon-red);    border: 1px solid rgba(255,51,85,.3); }
+
+    /* Kill button */
+    .kill-btn {
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,51,85,.4);
+      background: rgba(255,51,85,.1);
+      color: var(--neon-red);
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: .78rem;
+      letter-spacing: .08em;
+      cursor: pointer;
+      transition: background .2s, box-shadow .2s;
+    }
+    .kill-btn:hover { background: rgba(255,51,85,.25); box-shadow: 0 0 10px rgba(255,51,85,.3); }
+
+    /* ── Skeleton shimmer ── */
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position:  600px 0; }
+    }
+    .skeleton {
+      border-radius: 4px;
+      background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.1) 50%, rgba(255,255,255,.04) 75%);
+      background-size: 600px 100%;
+      animation: shimmer 1.4s infinite linear;
+    }
+
+    /* ── Misc label ── */
+    .field-label {
+      font-size: .72rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(0,207,255,.65);
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,207,255,.25); border-radius: 3px; }
+
+    /* ── Mono value display ── */
+    .mono-val {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: .95rem;
+      color: #fff;
+    }
+
+    /* Header */
+    header {
+      position: relative; z-index: 1;
+      padding: 20px 32px 0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00cfff22, #00ff8822);
+      border: 1px solid rgba(0,207,255,.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+    }
+    .app-name {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(0,207,255,.4);
+    }
+    .app-version {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: .7rem;
+      color: rgba(0,207,255,.5);
+      margin-left: 4px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green);
+      margin-left: auto;
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .35; }
+    }
+    .status-text {
+      font-size: .8rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      color: var(--neon-green);
+      text-shadow: 0 0 8px rgba(0,255,136,.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- background orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo-icon">🌐</div>
+    <div>
+      <span class="app-name">BrowserForge</span>
+      <span class="app-version">v2.4.1</span>
+    </div>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+      <div class="status-dot"></div>
+      <span class="status-text">DAEMON ACTIVE</span>
+    </div>
+  </header>
+
+  <!-- ── Main Layout ── -->
+  <main style="position:relative;z-index:1;padding:24px 32px 40px;display:grid;grid-template-columns:340px 1fr;gap:24px;min-height:calc(100vh - 76px);">
+
+    <!-- ══════════════════════════════════════════
+         LEFT — Configuration
+    ══════════════════════════════════════════ -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Config card -->
+      <div class="glass" style="padding:24px;display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="font-size:1rem;">⚙️</span>
+          <span class="card-title">Launch Configuration</span>
+        </div>
+
+        <!-- Platform -->
+        <div>
+          <label class="field-label">Platform</label>
+          <select id="platformSelect">
+            <option value="chromium">Chromium</option>
+            <option value="chrome">Google Chrome</option>
+            <option value="firefox">Firefox</option>
+            <option value="edge">Microsoft Edge</option>
+            <option value="webkit">WebKit / Safari</option>
+          </select>
+        </div>
+
+        <!-- Country -->
+        <div>
+          <label class="field-label">Target Country</label>
+          <select id="countrySelect">
+            <option value="us">🇺🇸  United States</option>
+            <option value="gb">🇬🇧  United Kingdom</option>
+            <option value="de">🇩🇪  Germany</option>
+            <option value="jp">🇯🇵  Japan</option>
+            <option value="br">🇧🇷  Brazil</option>
+            <option value="in">🇮🇳  India</option>
+            <option value="au">🇦🇺  Australia</option>
+            <option value="fr">🇫🇷  France</option>
+            <option value="ca">🇨🇦  Canada</option>
+            <option value="sg">🇸🇬  Singapore</option>
+          </select>
+        </div>
+
+        <!-- Browser Count Slider -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <label class="field-label" style="margin-bottom:0;">Browser Count</label>
+            <div style="display:flex;align-items:baseline;gap:3px;">
+              <span class="mono-val" id="sliderDisplay">5</span>
+              <span style="font-size:.7rem;color:rgba(0,207,255,.5);letter-spacing:.06em;">INSTANCES</span>
+            </div>
+          </div>
+          <div class="slider-wrap">
+            <input type="range" id="browserCountSlider" min="1" max="10" value="5" />
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:5px;">
+            <span style="font-size:.65rem;color:rgba(255,255,255,.25);font-family:'Share Tech Mono',monospace;">1</span>
+            <span style="font-size:.65rem;color:rgba(255,255,255,.25);font-family:'Share Tech Mono',monospace;">10</span>
+          </div>
+        </div>
+
+        <!-- Proxy checkbox -->
+        <div>
+          <label class="neon-check">
+            <input type="checkbox" id="useProxiesCheck" />
+            <div class="box"></div>
+            <span style="font-size:.95rem;font-weight:600;letter-spacing:.04em;">Use proxy rotation</span>
+          </label>
+        </div>
+
+        <!-- Divider -->
+        <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,.2),transparent);"></div>
+
+        <!-- Buttons -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <button class="btn pulse" id="startLaunchBtn">
+            <span>▶</span>
+            <span>START BROWSERS</span>
+          </button>
+          <button class="btn" id="stopAllBtn">
+            <span>⏹</span>
+            <span>STOP ALL</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick stats strip -->
+      <div class="glass" style="padding:18px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;">
+        <div style="text-align:center;border-right:1px solid rgba(0,207,255,.1);padding-right:10px;">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--neon-green);text-shadow:0 0 14px rgba(0,255,136,.5);" id="statRunning">0</div>
+          <div style="font-size:.65rem;letter-spacing:.12em;color:rgba(255,255,255,.35);text-transform:uppercase;margin-top:2px;">Running</div>
+        </div>
+        <div style="text-align:center;padding:0 10px;">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--neon-blue);text-shadow:0 0 14px rgba(0,207,255,.5);" id="statIdle">0</div>
+          <div style="font-size:.65rem;letter-spacing:.12em;color:rgba(255,255,255,.35);text-transform:uppercase;margin-top:2px;">Idle</div>
+        </div>
+        <div style="text-align:center;border-left:1px solid rgba(0,207,255,.1);padding-left:10px;">
+          <div style="font-size:1.5rem;font-weight:700;color:var(--neon-red);text-shadow:0 0 14px rgba(255,51,85,.5);" id="statErr">0</div>
+          <div style="font-size:.65rem;letter-spacing:.12em;color:rgba(255,255,255,.35);text-transform:uppercase;margin-top:2px;">Errors</div>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- ══════════════════════════════════════════
+         RIGHT — Health & Sessions
+    ══════════════════════════════════════════ -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Health Monitor card -->
+      <div class="glass" style="padding:24px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+          <span style="font-size:1rem;">🩺</span>
+          <span class="card-title">Browser Health Monitor</span>
+          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:.7rem;color:rgba(0,207,255,.4);" id="healthTimestamp">--:--:--</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+          <!-- CPU -->
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <div>
+                <span class="field-label" style="margin-bottom:0;">CPU Load</span>
+              </div>
+              <span class="mono-val" id="healthCpu">—</span>
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill prog-cpu" id="cpuBar" style="width:0%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;">
+              <span style="font-size:.65rem;color:rgba(255,255,255,.25);font-family:'Share Tech Mono',monospace;">0%</span>
+              <span style="font-size:.65rem;color:rgba(255,255,255,.25);font-family:'Share Tech Mono',monospace;">100%</span>
+            </div>
+          </div>
+
+          <!-- Memory -->
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <div>
+                <span class="field-label" style="margin-bottom:0;">Memory</span>
+              </div>
+              <span class="mono-val" id="healthMem">—</span>
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill prog-mem" id="memBar" style="width:0%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;">
+              <span style="font-size:.65rem;color:rgba(255,255,255,.25);font-family:'Share Tech Mono',monospace;">0 GB</span>
+              <span style="font-size:.65rem;color:rgba(255,255,255,.25);font-family:'Share Tech Mono',monospace;">16 GB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Running Sessions card -->
+      <div class="glass" style="padding:24px;flex:1;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+          <span style="font-size:1rem;">🖥️</span>
+          <span class="card-title">Running Sessions</span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:.7rem;letter-spacing:.1em;color:rgba(255,255,255,.3);text-transform:uppercase;">Total:</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:.85rem;color:#fff;" id="totalSessions">0</span>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Session ID</th>
+                <th>URL</th>
+                <th>Status</th>
+                <th>Uptime</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="browserSessionsTable">
+              <!-- Skeleton rows injected by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state (shown when no rows) -->
+        <div id="emptyState" style="display:none;text-align:center;padding:48px 0;">
+          <div style="font-size:2.5rem;margin-bottom:12px;opacity:.3;">🌐</div>
+          <div style="font-size:.85rem;color:rgba(255,255,255,.25);letter-spacing:.08em;text-transform:uppercase;">No active sessions</div>
+        </div>
+      </div>
+
+    </div><!-- /right -->
+
+  </main>
+
+  <!-- ══════════════════════════════════════════
+       SCRIPT
+  ══════════════════════════════════════════ -->
+  <script>
+    /* ── Slider live update ── */
+    const slider   = document.getElementById('browserCountSlider');
+    const display  = document.getElementById('sliderDisplay');
+
+    function updateSlider() {
+      display.textContent = slider.value;
+      // Tint the track fill using a CSS gradient trick
+      const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+      slider.style.background =
+        `linear-gradient(90deg, rgba(0,207,255,.55) ${pct}%, rgba(0,207,255,.1) ${pct}%)`;
+    }
+    slider.addEventListener('input', updateSlider);
+    updateSlider(); // init
+
+    /* ── Skeleton table loading ── */
+    const SKELETON_ROWS = 5;
+    const tbody = document.getElementById('browserSessionsTable');
+
+    function buildSkeletonRow() {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><div class="skeleton" style="height:14px;width:90px;"></div></td>
+        <td><div class="skeleton" style="height:14px;width:160px;"></div></td>
+        <td><div class="skeleton" style="height:14px;width:60px;border-radius:99px;"></div></td>
+        <td><div class="skeleton" style="height:14px;width:50px;"></div></td>
+        <td><div class="skeleton" style="height:24px;width:44px;border-radius:6px;"></div></td>
+      `;
+      return tr;
+    }
+
+    function showSkeleton() {
+      tbody.innerHTML = '';
+      for (let i = 0; i < SKELETON_ROWS; i++) tbody.appendChild(buildSkeletonRow());
+    }
+
+    /* Sample data ── replace with eel.expose callbacks */
+    const SAMPLE_SESSIONS = [
+      { id: 'BRW-001', url: 'https://example.com',       status: 'active', uptime: '00:12:44' },
+      { id: 'BRW-002', url: 'https://store.target.com',  status: 'active', uptime: '00:09:17' },
+      { id: 'BRW-003', url: 'https://news.ycombinator.com', status: 'idle',   uptime: '00:05:03' },
+      { id: 'BRW-004', url: 'https://google.com',        status: 'error',  uptime: '00:01:28' },
+      { id: 'BRW-005', url: 'https://github.com',        status: 'active', uptime: '00:18:55' },
+    ];
+
+    function statusBadge(s) {
+      if (s === 'active') return '<span class="badge badge-active">Active</span>';
+      if (s === 'idle')   return '<span class="badge badge-idle">Idle</span>';
+      return '<span class="badge badge-err">Error</span>';
+    }
+
+    function populateTable(sessions) {
+      tbody.innerHTML = '';
+      const empty = document.getElementById('emptyState');
+      if (!sessions.length) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+
+      // Update stats
+      document.getElementById('statRunning').textContent = sessions.filter(s=>s.status==='active').length;
+      document.getElementById('statIdle').textContent    = sessions.filter(s=>s.status==='idle').length;
+      document.getElementById('statErr').textContent     = sessions.filter(s=>s.status==='error').length;
+      document.getElementById('totalSessions').textContent = sessions.length;
+
+      sessions.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:var(--neon-blue);">${s.id}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.65);">${s.url}</td>
+          <td>${statusBadge(s.status)}</td>
+          <td>${s.uptime}</td>
+          <td><button class="kill-btn" data-id="${s.id}">KILL</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Kill button handlers
+      tbody.querySelectorAll('.kill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          // eel.kill_session(id) — wire up to Eel here
+          btn.closest('tr').style.opacity = '0';
+          btn.closest('tr').style.transition = 'opacity .3s';
+          setTimeout(() => btn.closest('tr').remove(), 300);
+        });
+      });
+    }
+
+    /* ── Fake health metrics (replace with eel.expose) ── */
+    function updateHealth() {
+      const cpu = Math.round(20 + Math.random() * 60);
+      const memGb = (1.2 + Math.random() * 6).toFixed(1);
+      const memPct = (memGb / 16) * 100;
+
+      document.getElementById('healthCpu').textContent = cpu + '%';
+      document.getElementById('cpuBar').style.width    = cpu + '%';
+
+      document.getElementById('healthMem').textContent = memGb + ' GB';
+      document.getElementById('memBar').style.width    = memPct.toFixed(1) + '%';
+
+      const now = new Date();
+      document.getElementById('healthTimestamp').textContent =
+        now.toTimeString().slice(0,8);
+    }
+
+    /* ── Boot sequence ── */
+    showSkeleton();
+    setTimeout(() => {
+      populateTable(SAMPLE_SESSIONS);
+      updateHealth();
+    }, 1600);
+
+    // Refresh health every 3s
+    setInterval(updateHealth, 3000);
+
+    /* ── Button wiring (Eel stubs) ── */
+    document.getElementById('startLaunchBtn').addEventListener('click', () => {
+      const count    = slider.value;
+      const platform = document.getElementById('platformSelect').value;
+      const country  = document.getElementById('countrySelect').value;
+      const proxies  = document.getElementById('useProxiesCheck').checked;
+      // eel.start_browsers(count, platform, country, proxies);
+      console.log('START', { count, platform, country, proxies });
+    });
+
+    document.getElementById('stopAllBtn').addEventListener('click', () => {
+      // eel.stop_all_browsers();
+      console.log('STOP ALL');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,618 @@
+<!-- ═══════════════════════════════════════════════════════
+     AppointmentBot · Sidebar Navigation Component
+     Reusable component · loaded into index.html at runtime
+     ═══════════════════════════════════════════════════════ -->
+
+<style>
+  /* ── Imports ─────────────────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  /* ── Design Tokens ───────────────────────────────────── */
+  :root {
+    --sidebar-bg:        rgba(11, 17, 32, 0.92);
+    --sidebar-border:    rgba(59, 130, 246, 0.18);
+    --sidebar-width:     280px;
+
+    --neon-blue:         #3B82F6;
+    --neon-blue-dim:     rgba(59, 130, 246, 0.20);
+    --neon-blue-glow:    rgba(59, 130, 246, 0.45);
+    --neon-cyan:         #06B6D4;
+    --neon-green:        #10B981;
+
+    --text-primary:      #E2E8F0;
+    --text-secondary:    #64748B;
+    --text-muted:        #334155;
+
+    --item-hover-bg:     rgba(59, 130, 246, 0.08);
+    --item-active-bg:    rgba(59, 130, 246, 0.18);
+    --item-active-border:#3B82F6;
+
+    --transition-snappy: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ── Sidebar Shell ───────────────────────────────────── */
+  #appSidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 9999;
+
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-right: 1px solid var(--sidebar-border);
+    box-shadow:
+      4px 0 32px rgba(0,0,0,0.5),
+      inset -1px 0 0 rgba(59,130,246,0.06);
+
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* subtle scanline overlay for depth */
+  #appSidebar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(59,130,246,0.015) 2px,
+      rgba(59,130,246,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Logo / Title ────────────────────────────────────── */
+  #sidebarLogo {
+    position: relative;
+    z-index: 1;
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0; /* GSAP will animate in */
+  }
+
+  .logo-icon-wrap {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1D4ED8, #0EA5E9);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 16px var(--neon-blue-glow), 0 2px 8px rgba(0,0,0,0.4);
+    flex-shrink: 0;
+  }
+
+  .logo-icon-wrap svg {
+    width: 22px; height: 22px;
+    fill: #fff;
+    filter: drop-shadow(0 0 4px rgba(255,255,255,0.6));
+  }
+
+  .logo-text-block {
+    display: flex; flex-direction: column; line-height: 1;
+  }
+
+  .logo-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+    background: linear-gradient(90deg, #E2E8F0 30%, #60A5FA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: var(--neon-cyan);
+    margin-top: 3px;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+
+  /* ── Section Label ───────────────────────────────────── */
+  .nav-section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 16px 22px 6px;
+    opacity: 0;
+  }
+
+  /* ── Navigation Menu ─────────────────────────────────── */
+  #sidebarNav {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 12px 12px;
+    scrollbar-width: none;
+  }
+  #sidebarNav::-webkit-scrollbar { display: none; }
+
+  /* ── Individual Menu Item ────────────────────────────── */
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+
+    border-left: 3px solid transparent;
+    color: var(--text-secondary);
+    transition:
+      background var(--transition-snappy),
+      border-color var(--transition-snappy),
+      color var(--transition-snappy),
+      transform var(--transition-snappy),
+      box-shadow var(--transition-snappy);
+
+    opacity: 0; /* GSAP stagger */
+    transform: translateX(-12px);
+  }
+
+  /* ripple / shine on hover */
+  .sidebar-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(59,130,246,0.06), transparent);
+    transform: translateX(-100%);
+    transition: transform 500ms ease;
+  }
+
+  .sidebar-item:hover::before { transform: translateX(100%); }
+
+  .sidebar-item:hover {
+    background: var(--item-hover-bg);
+    border-left-color: rgba(59,130,246,0.5);
+    color: var(--text-primary);
+    transform: translateX(3px);
+    box-shadow: inset 0 0 12px rgba(59,130,246,0.04);
+  }
+
+  .sidebar-item.active {
+    background: var(--item-active-bg);
+    border-left-color: var(--item-active-border);
+    color: #fff;
+    transform: translateX(3px);
+    box-shadow:
+      inset 0 0 20px rgba(59,130,246,0.08),
+      0 0 0 1px rgba(59,130,246,0.12);
+    text-shadow: 0 0 12px var(--neon-blue-glow);
+  }
+
+  .sidebar-item.active .item-icon { filter: drop-shadow(0 0 6px var(--neon-blue)); }
+  .sidebar-item.active .item-badge { background: var(--neon-blue); }
+
+  /* ── Item Icon ───────────────────────────────────────── */
+  .item-icon {
+    width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity var(--transition-snappy), filter var(--transition-snappy);
+  }
+  .sidebar-item:hover .item-icon,
+  .sidebar-item.active .item-icon { opacity: 1; }
+
+  .item-icon svg {
+    width: 18px; height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ── Item Label ──────────────────────────────────────── */
+  .item-label {
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    flex: 1;
+    transition: color var(--transition-snappy);
+  }
+
+  /* ── Item Badge (optional) ───────────────────────────── */
+  .item-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 20px;
+    background: rgba(100,116,139,0.25);
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+    transition: background var(--transition-snappy), color var(--transition-snappy);
+    flex-shrink: 0;
+  }
+  .sidebar-item.active .item-badge,
+  .sidebar-item:hover .item-badge {
+    background: var(--neon-blue-dim);
+    color: #93C5FD;
+  }
+
+  /* ── Divider ─────────────────────────────────────────── */
+  .nav-divider {
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent,
+      var(--sidebar-border) 30%,
+      var(--sidebar-border) 70%,
+      transparent
+    );
+    margin: 8px 4px;
+    opacity: 0;
+  }
+
+  /* ── Footer ──────────────────────────────────────────── */
+  #sidebarFooter {
+    position: relative;
+    z-index: 1;
+    padding: 14px 20px;
+    border-top: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    opacity: 0;
+  }
+
+  .footer-version {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+  .footer-version span { color: #475569; }
+
+  .footer-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--neon-green);
+    letter-spacing: 0.04em;
+    transition: color 400ms ease;
+  }
+  .footer-status.offline { color: #F87171; }
+
+  /* pulsing dot */
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--neon-green);
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+    animation: pulse-dot 2s ease-in-out infinite;
+    flex-shrink: 0;
+    transition: background 400ms ease, box-shadow 400ms ease;
+  }
+  .footer-status.offline .status-dot {
+    background: #F87171;
+    box-shadow: 0 0 0 0 rgba(248,113,113,0.5);
+    animation: pulse-dot-red 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%   { box-shadow: 0 0 0 0   rgba(16,185,129,0.65); }
+    60%  { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    100% { box-shadow: 0 0 0 0   rgba(16,185,129,0); }
+  }
+  @keyframes pulse-dot-red {
+    0%   { box-shadow: 0 0 0 0   rgba(248,113,113,0.6); }
+    60%  { box-shadow: 0 0 0 6px rgba(248,113,113,0); }
+    100% { box-shadow: 0 0 0 0   rgba(248,113,113,0); }
+  }
+
+  /* ── Active item glow pulse ──────────────────────────── */
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: inset 0 0 16px rgba(59,130,246,0.06), 0 0 0 1px rgba(59,130,246,0.10); }
+    50%       { box-shadow: inset 0 0 24px rgba(59,130,246,0.14), 0 0 0 1px rgba(59,130,246,0.22); }
+  }
+  .sidebar-item.active { animation: glow-pulse 3s ease-in-out infinite; }
+
+  /* ── Corner accent ───────────────────────────────────── */
+  .logo-corner-accent {
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px; height: 80px;
+    background: radial-gradient(circle at top right, rgba(59,130,246,0.12), transparent 70%);
+    pointer-events: none;
+  }
+</style>
+
+<!-- ═══════════════════════ SIDEBAR MARKUP ═══════════════════════ -->
+<aside id="appSidebar" role="navigation" aria-label="Main navigation">
+
+  <!-- Logo / Brand -->
+  <div id="sidebarLogo">
+    <div class="logo-corner-accent"></div>
+    <div class="logo-icon-wrap" aria-hidden="true">
+      <!-- Calendar/Bot icon -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 2v3M16 2v3M3.5 9h17M4 5h16a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1ZM9 13l2 2 4-4"/>
+      </svg>
+    </div>
+    <div class="logo-text-block">
+      <span class="logo-title">AppointmentBot</span>
+      <span class="logo-subtitle">Automation Suite</span>
+    </div>
+  </div>
+
+  <!-- Navigation Menu -->
+  <div id="sidebarNav" role="menu">
+
+    <div class="nav-section-label">Core</div>
+
+    <div class="sidebar-item" data-page="dashboard" role="menuitem" tabindex="0" aria-label="Dashboard">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </span>
+      <span class="item-label">Dashboard</span>
+    </div>
+
+    <div class="sidebar-item" data-page="accounts" role="menuitem" tabindex="0" aria-label="Accounts Manager">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 7-7h2"/><path d="M19 15v6M22 18h-6"/></svg>
+      </span>
+      <span class="item-label">Accounts Manager</span>
+    </div>
+
+    <div class="sidebar-item" data-page="browser" role="menuitem" tabindex="0" aria-label="Browser Launcher">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2Z"/></svg>
+      </span>
+      <span class="item-label">Browser Launcher</span>
+    </div>
+
+    <div class="nav-divider" aria-hidden="true"></div>
+    <div class="nav-section-label">Monitoring</div>
+
+    <div class="sidebar-item" data-page="monitor" role="menuitem" tabindex="0" aria-label="Live Monitor">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </span>
+      <span class="item-label">Live Monitor</span>
+      <span class="item-badge">LIVE</span>
+    </div>
+
+    <div class="sidebar-item" data-page="slot_monitor" role="menuitem" tabindex="0" aria-label="Slot Monitor">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </span>
+      <span class="item-label">Slot Monitor</span>
+    </div>
+
+    <div class="sidebar-item" data-page="logs" role="menuitem" tabindex="0" aria-label="Logs Console">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </span>
+      <span class="item-label">Logs Console</span>
+    </div>
+
+    <div class="nav-divider" aria-hidden="true"></div>
+    <div class="nav-section-label">Management</div>
+
+    <div class="sidebar-item" data-page="proxies" role="menuitem" tabindex="0" aria-label="Proxy Manager">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </span>
+      <span class="item-label">Proxy Manager</span>
+    </div>
+
+    <div class="sidebar-item" data-page="notifications" role="menuitem" tabindex="0" aria-label="Notifications">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </span>
+      <span class="item-label">Notifications</span>
+    </div>
+
+    <div class="sidebar-item" data-page="settings" role="menuitem" tabindex="0" aria-label="Settings">
+      <span class="item-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      </span>
+      <span class="item-label">Settings</span>
+    </div>
+
+  </div><!-- /#sidebarNav -->
+
+  <!-- Footer -->
+  <div id="sidebarFooter">
+    <span class="footer-version">v<span id="sidebarVersionText">2.4.1</span></span>
+    <div class="footer-status" id="footerStatusEl" role="status" aria-live="polite">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">327 Online</span>
+    </div>
+  </div>
+
+</aside><!-- /#appSidebar -->
+
+<!-- ═══════════════════════ SCRIPTS ═══════════════════════ -->
+<!-- GSAP (CDN — assumes internet access; swap for local path in prod) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── DOM references ──────────────────────────────────── */
+  const sidebar       = document.getElementById('appSidebar');
+  const logoEl        = document.getElementById('sidebarLogo');
+  const navEl         = document.getElementById('sidebarNav');
+  const footerEl      = document.getElementById('sidebarFooter');
+  const statusEl      = document.getElementById('footerStatusEl');
+  const statusTextEl  = document.getElementById('statusText');
+  const statusDotEl   = document.getElementById('statusDot');
+  const navItems      = document.querySelectorAll('.sidebar-item');
+  const sectionLabels = document.querySelectorAll('.nav-section-label');
+  const dividers      = document.querySelectorAll('.nav-divider');
+
+  /* ── Boot animation (GSAP) ───────────────────────────── */
+  function runEntrance () {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+    // Sidebar slides in from left
+    tl.fromTo(sidebar,
+      { x: -20, opacity: 0 },
+      { x: 0,   opacity: 1, duration: 0.45 }
+    );
+
+    // Logo
+    tl.to(logoEl,
+      { opacity: 1, duration: 0.3 },
+      '-=0.15'
+    );
+
+    // Section labels and dividers
+    tl.to([...sectionLabels, ...dividers],
+      { opacity: 1, duration: 0.25, stagger: 0.04 },
+      '-=0.1'
+    );
+
+    // Nav items stagger
+    tl.to(navItems,
+      {
+        opacity: 1,
+        x: 0,
+        duration: 0.35,
+        stagger: 0.055,
+        ease: 'back.out(1.4)'
+      },
+      '-=0.15'
+    );
+
+    // Footer
+    tl.to(footerEl,
+      { opacity: 1, duration: 0.3 },
+      '-=0.1'
+    );
+  }
+
+  /* ── Public API: setActiveSidebar ────────────────────── */
+  /**
+   * Sets the active visual state on the matching sidebar item.
+   * @param {string} pageName – matches `data-page` attribute
+   */
+  window.setActiveSidebar = function (pageName) {
+    navItems.forEach(function (item) {
+      const isActive = item.dataset.page === pageName;
+
+      if (isActive && !item.classList.contains('active')) {
+        // Animate the newly active item
+        gsap.fromTo(item,
+          { scale: 0.97 },
+          { scale: 1, duration: 0.22, ease: 'back.out(1.8)' }
+        );
+      }
+
+      item.classList.toggle('active', isActive);
+      item.setAttribute('aria-current', isActive ? 'page' : 'false');
+    });
+  };
+
+  /* ── Public API: updateSidebarStatus ─────────────────── */
+  /**
+   * Updates the footer status indicator.
+   * @param {string}  statusText  – e.g. "System Online" / "Offline"
+   * @param {boolean} isOnline    – controls dot colour / pulse
+   * @param {string}  [version]   – optional version string to update
+   */
+  window.updateSidebarStatus = function (statusText, isOnline, version) {
+    // Text
+    statusTextEl.textContent = statusText;
+
+    // Colour state
+    if (isOnline) {
+      statusEl.classList.remove('offline');
+    } else {
+      statusEl.classList.add('offline');
+    }
+
+    // Optional version update
+    if (version !== undefined) {
+      const vEl = document.getElementById('sidebarVersionText');
+      if (vEl) vEl.textContent = version;
+    }
+
+    // Tiny pulse feedback
+    gsap.fromTo(statusEl,
+      { scale: 0.92, opacity: 0.6 },
+      { scale: 1,    opacity: 1, duration: 0.28, ease: 'back.out(1.8)' }
+    );
+  };
+
+  /* ── Click delegation ────────────────────────────────── */
+  navEl.addEventListener('click', function (e) {
+    const item = e.target.closest('.sidebar-item');
+    if (!item) return;
+
+    const page = item.dataset.page;
+    if (!page) return;
+
+    // Visual feedback ripple
+    gsap.fromTo(item,
+      { scale: 0.96 },
+      { scale: 1, duration: 0.18, ease: 'back.out(2)' }
+    );
+
+    // Delegate to global loadPage (defined in main.js)
+    if (typeof window.loadPage === 'function') {
+      window.loadPage(page);
+    } else {
+      console.warn('[Sidebar] window.loadPage is not defined. Page:', page);
+    }
+  });
+
+  /* ── Keyboard navigation (a11y) ──────────────────────── */
+  navEl.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const item = e.target.closest('.sidebar-item');
+    if (!item) return;
+    e.preventDefault();
+    item.click();
+  });
+
+  /* ── Hover micro-animation (GSAP enhances CSS) ───────── */
+  navItems.forEach(function (item) {
+    item.addEventListener('mouseenter', function () {
+      if (item.classList.contains('active')) return;
+      gsap.to(item, { x: 3, duration: 0.18, ease: 'power2.out', overwrite: 'auto' });
+    });
+    item.addEventListener('mouseleave', function () {
+      if (item.classList.contains('active')) return;
+      gsap.to(item, { x: 0, duration: 0.22, ease: 'power2.inOut', overwrite: 'auto' });
+    });
+  });
+
+  /* ── Kick off entrance animation ────────────────────────*/
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runEntrance);
+  } else {
+    runEntrance();
+  }
+
+}());
+</script>

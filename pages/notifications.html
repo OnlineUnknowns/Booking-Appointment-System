@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notification History</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:        #080c14;
+      --bg-grid:        rgba(255,255,255,0.03);
+      --glass-bg:       rgba(12, 20, 38, 0.72);
+      --glass-border:   rgba(255,255,255,0.08);
+      --glass-blur:     18px;
+
+      --col-info:       rgba(56, 182, 255, 0.10);
+      --col-info-acc:   #38b6ff;
+      --col-warning:    rgba(255, 188, 50, 0.10);
+      --col-warning-acc:#ffbc32;
+      --col-error:      rgba(255, 75, 95, 0.10);
+      --col-error-acc:  #ff4b5f;
+      --col-success:    rgba(50, 220, 140, 0.10);
+      --col-success-acc:#32dc8c;
+
+      --neon-unread:    #38b6ff;
+      --text-primary:   #e8edf5;
+      --text-muted:     #6b7a99;
+      --font-display:   'Syne', sans-serif;
+      --font-mono:      'Space Mono', monospace;
+      --radius:         14px;
+      --row-radius:     8px;
+      --transition:     0.25s ease;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--bg-base);
+      background-image:
+        linear-gradient(135deg, #0d1528 0%, #080c14 60%, #0a1020 100%),
+        repeating-linear-gradient(0deg, var(--bg-grid) 0px, var(--bg-grid) 1px, transparent 1px, transparent 40px),
+        repeating-linear-gradient(90deg, var(--bg-grid) 0px, var(--bg-grid) 1px, transparent 1px, transparent 40px);
+      background-blend-mode: normal, overlay, overlay;
+      font-family: var(--font-display);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+    }
+
+    /* ── Ambient glows ── */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(56,182,255,0.07) 0%, transparent 70%);
+      top: -120px; left: -100px;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(255,75,95,0.06) 0%, transparent 70%);
+      bottom: -80px; right: -60px;
+    }
+
+    /* ── Header ── */
+    .header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(56,182,255,0.25), rgba(56,182,255,0.05));
+      border: 1px solid rgba(56,182,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 18px rgba(56,182,255,0.15);
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #e8edf5 30%, #38b6ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Badge ── */
+    .badge-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 99px;
+      background: rgba(56,182,255,0.15);
+      border: 1px solid rgba(56,182,255,0.5);
+      color: var(--col-info-acc);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(56,182,255,0.25);
+      animation: badgePulse 2.4s ease-in-out infinite;
+      transition: all var(--transition);
+    }
+
+    .badge.zero {
+      background: rgba(107,122,153,0.12);
+      border-color: rgba(107,122,153,0.3);
+      color: var(--text-muted);
+      box-shadow: none;
+      animation: none;
+    }
+
+    @keyframes badgePulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(56,182,255,0.25); }
+      50%       { box-shadow: 0 0 20px rgba(56,182,255,0.55); }
+    }
+
+    /* ── Glass Card ── */
+    .card {
+      width: 100%;
+      max-width: 900px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+      box-shadow:
+        0 4px 32px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .card-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .legend {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Clear Button ── */
+    .btn-clear {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      background: rgba(255, 75, 95, 0.08);
+      border: 1px solid rgba(255, 75, 95, 0.25);
+      color: var(--col-error-acc);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .btn-clear:hover {
+      background: rgba(255, 75, 95, 0.18);
+      border-color: rgba(255, 75, 95, 0.5);
+      box-shadow: 0 0 14px rgba(255,75,95,0.2);
+    }
+    .btn-clear:active { transform: scale(0.97); }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    thead tr th {
+      padding: 14px 20px;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.015);
+      border-bottom: 1px solid var(--glass-border);
+      white-space: nowrap;
+    }
+
+    thead tr th:first-child { padding-left: 24px; }
+    thead tr th:last-child  { padding-right: 24px; }
+
+    tbody tr {
+      transition: background var(--transition), box-shadow var(--transition);
+      cursor: default;
+    }
+    tbody tr:not(:last-child) td {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    tbody tr:hover td { filter: brightness(1.08); }
+
+    td {
+      padding: 13px 20px;
+      font-size: 0.875rem;
+      vertical-align: middle;
+      transition: background var(--transition);
+    }
+    td:first-child { padding-left: 24px; }
+    td:last-child  { padding-right: 24px; }
+
+    /* Row type coloring */
+    tr.type-info    { background: var(--col-info); }
+    tr.type-warning { background: var(--col-warning); }
+    tr.type-error   { background: var(--col-error); }
+    tr.type-success { background: var(--col-success); }
+
+    /* Unread neon border */
+    tr.unread {
+      position: relative;
+      box-shadow: inset 3px 0 0 var(--neon-unread), inset 0 0 20px rgba(56,182,255,0.05);
+    }
+    tr.unread td:first-child {
+      padding-left: 21px;
+    }
+
+    /* Time col */
+    .td-time {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* Type badge */
+    .type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+
+    .type-badge.info    { background: rgba(56,182,255,0.15);  color: var(--col-info-acc);    border: 1px solid rgba(56,182,255,0.25); }
+    .type-badge.warning { background: rgba(255,188,50,0.15);  color: var(--col-warning-acc); border: 1px solid rgba(255,188,50,0.25); }
+    .type-badge.error   { background: rgba(255,75,95,0.15);   color: var(--col-error-acc);   border: 1px solid rgba(255,75,95,0.25); }
+    .type-badge.success { background: rgba(50,220,140,0.15);  color: var(--col-success-acc); border: 1px solid rgba(50,220,140,0.25); }
+
+    .type-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .info .type-dot    { background: var(--col-info-acc); }
+    .warning .type-dot { background: var(--col-warning-acc); }
+    .error .type-dot   { background: var(--col-error-acc); }
+    .success .type-dot { background: var(--col-success-acc); }
+
+    /* Message col */
+    .td-message {
+      color: rgba(232, 237, 245, 0.88);
+      line-height: 1.5;
+    }
+
+    /* Source tag */
+    .source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      margin-left: 10px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+    }
+
+    .empty-state-icon { font-size: 2.4rem; opacity: 0.35; }
+
+    /* Refresh indicator */
+    .refresh-bar {
+      height: 2px;
+      background: rgba(56,182,255,0.15);
+      position: relative;
+      overflow: hidden;
+    }
+    .refresh-bar::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -60%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(56,182,255,0.7), transparent);
+      animation: sweep 5s linear infinite;
+    }
+    @keyframes sweep {
+      0%   { left: -60%; }
+      100% { left: 100%; }
+    }
+
+    /* Footer */
+    .card-footer {
+      padding: 10px 24px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.015);
+    }
+
+    .footer-text {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--col-success-acc);
+      box-shadow: 0 0 6px var(--col-success-acc);
+      animation: blink 1.8s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    .last-refresh {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    /* Row enter animation */
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .row-new { animation: rowIn 0.35s ease forwards; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-icon">🔔</div>
+      <h1>Notification History</h1>
+    </div>
+    <div class="badge-wrap">
+      <span class="badge-label">Unread</span>
+      <span class="badge zero" id="unreadBadge">0</span>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+
+    <!-- Toolbar -->
+    <div class="card-toolbar">
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--col-info-acc)"></span>Info</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--col-warning-acc)"></span>Warning</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--col-error-acc)"></span>Error</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--col-success-acc)"></span>Success</span>
+      </div>
+      <button class="btn-clear" onclick="clearAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+        CLEAR ALL
+      </button>
+    </div>
+
+    <!-- Refresh progress bar -->
+    <div class="refresh-bar"></div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Type</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody id="notifTable">
+          <!-- populated by JS -->
+        </tbody>
+      </table>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-icon">📭</div>
+        <span>NO NOTIFICATIONS YET</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="card-footer">
+      <div class="footer-text">
+        <span class="live-dot"></span>
+        AUTO-REFRESH · 5s
+      </div>
+      <div class="last-refresh" id="lastRefresh">—</div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ─────────────────────────────────────────────
+       Mock notification store
+       In a real Eel app, refreshNotifications()
+       would call: eel.get_notifications()(callback)
+       and populate the table from Python data.
+    ───────────────────────────────────────────── */
+
+    const TYPES = ['info', 'warning', 'error', 'success'];
+    const SOURCES = ['in-app', 'telegram'];
+    const ICONS = { info: 'ℹ', warning: '⚠', error: '✕', success: '✓' };
+
+    const SAMPLE_MESSAGES = {
+      info:    ['System check completed', 'New session started', 'Config file loaded', 'Bot connected to Telegram'],
+      warning: ['CPU usage above 80%', 'Disk space running low', 'Retry attempt 2 of 3', 'Rate limit approaching'],
+      error:   ['Connection timeout', 'Failed to send Telegram message', 'Database write error', 'Auth token expired'],
+      success: ['Backup completed', 'Message delivered', 'Trade executed successfully', 'Report generated'],
+    };
+
+    let notifications = [];
+    let unreadCount = 0;
+    let idCounter = 0;
+
+    // Seed with a few initial entries
+    function seedInitial() {
+      const now = Date.now();
+      const seeds = [
+        { type: 'success', source: 'telegram',  msg: 'Bot connected to Telegram gateway',    offset: 320000 },
+        { type: 'info',    source: 'in-app',    msg: 'Application started successfully',      offset: 260000 },
+        { type: 'warning', source: 'in-app',    msg: 'CPU usage above 80% for 30s',           offset: 180000 },
+        { type: 'error',   source: 'telegram',  msg: 'Failed to deliver alert — retry 1/3',  offset: 90000  },
+        { type: 'success', source: 'telegram',  msg: 'Alert delivered after retry',            offset: 84000  },
+        { type: 'info',    source: 'in-app',    msg: 'Config reload triggered by user',        offset: 30000  },
+      ];
+      seeds.forEach(s => {
+        notifications.push({
+          id: ++idCounter,
+          time: now - s.offset,
+          type: s.type,
+          source: s.source,
+          message: s.msg,
+          unread: false,
+        });
+      });
+    }
+
+    /* ── Main refresh function (called by setInterval) ── */
+    function refreshNotifications() {
+      // In a real Eel app, replace this block with:
+      //   eel.get_notifications()(function(data){ populateTable(data); });
+      maybeAddRandom();
+      populateTable();
+      updateBadge();
+      updateTimestamp();
+    }
+
+    function maybeAddRandom() {
+      if (Math.random() < 0.45) {
+        const type = TYPES[Math.floor(Math.random() * TYPES.length)];
+        const source = SOURCES[Math.floor(Math.random() * SOURCES.length)];
+        const msgs = SAMPLE_MESSAGES[type];
+        notifications.unshift({
+          id: ++idCounter,
+          time: Date.now(),
+          type,
+          source,
+          message: msgs[Math.floor(Math.random() * msgs.length)],
+          unread: true,
+        });
+        unreadCount++;
+        if (notifications.length > 80) notifications.pop();
+      }
+    }
+
+    function populateTable() {
+      const tbody = document.getElementById('notifTable');
+      const empty = document.getElementById('emptyState');
+
+      if (notifications.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'flex';
+        return;
+      }
+      empty.style.display = 'none';
+
+      // Rebuild rows (efficient enough for ≤80 items)
+      const fragment = document.createDocumentFragment();
+      notifications.forEach((n, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = `type-${n.type}${n.unread ? ' unread' : ''}`;
+        if (idx === 0) tr.classList.add('row-new');
+
+        tr.innerHTML = `
+          <td class="td-time">${formatTime(n.time)}</td>
+          <td>
+            <span class="type-badge ${n.type}">
+              <span class="type-dot"></span>${n.type}
+            </span>
+          </td>
+          <td class="td-message">
+            ${escHtml(n.message)}
+            <span class="source-tag">${n.source === 'telegram' ? '✈' : '⬡'} ${n.source}</span>
+          </td>`;
+        fragment.appendChild(tr);
+      });
+
+      tbody.innerHTML = '';
+      tbody.appendChild(fragment);
+    }
+
+    function updateBadge() {
+      const badge = document.getElementById('unreadBadge');
+      badge.textContent = unreadCount;
+      badge.classList.toggle('zero', unreadCount === 0);
+    }
+
+    function updateTimestamp() {
+      document.getElementById('lastRefresh').textContent =
+        'REFRESHED ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function clearAll() {
+      notifications = [];
+      unreadCount = 0;
+      populateTable();
+      updateBadge();
+    }
+
+    /* ── Helpers ── */
+    function formatTime(ts) {
+      const d = new Date(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ── Mark all as read when user clicks the table ── */
+    document.getElementById('notifTable').addEventListener('click', () => {
+      notifications.forEach(n => n.unread = false);
+      unreadCount = 0;
+      populateTable();
+      updateBadge();
+    });
+
+    /* ── Bootstrap ── */
+    seedInitial();
+    populateTable();
+    updateBadge();
+    updateTimestamp();
+
+    setInterval(refreshNotifications, 5000);
+  </script>
+</body>
+</html>

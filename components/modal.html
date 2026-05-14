@@ -1,0 +1,686 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     modal.html  –  Reusable modal component for Eel Desktop App
+     Load inside index.html via fetch/innerHTML or <object>.
+     Exposes globals: openModal(title, bodyHTML, footerHTML)
+                      closeModal()
+                      openModal.variant(type, ...)   // convenience
+═══════════════════════════════════════════════════════════════ -->
+
+<style>
+  /* ── Custom props (scoped to modal, won't leak) ───────────── */
+  #modalOverlay {
+    --m-glass-bg:     rgba(15, 25, 45, 0.92);
+    --m-border:       rgba(59, 130, 246, 0.38);
+    --m-border-h:     rgba(99, 202, 255, 0.65);
+    --m-blue:         #60a5fa;
+    --m-cyan:         #22d3ee;
+    --m-glow:         rgba(59, 130, 246, 0.28);
+    --m-glow-strong:  rgba(59, 130, 246, 0.55);
+    --m-text-1:       #e2eaf8;
+    --m-text-2:       #7a91c0;
+    --m-text-3:       #374d78;
+    --m-danger:       #f87171;
+    --m-success:      #34d399;
+    --m-warning:      #fbbf24;
+    --m-font-d:       'Rajdhani', 'Oxanium', sans-serif;
+    --m-font-m:       'Fira Code', 'JetBrains Mono', monospace;
+    --m-radius:       20px;
+    --m-tr:           0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ── Overlay ─────────────────────────────────────────────── */
+  #modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(3, 7, 18, 0.82);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+
+  #modalOverlay.modal-visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* ── Decorative corner grid on overlay ──────────────────── */
+  #modalOverlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(0deg,  rgba(59,130,246,0.025) 0px, rgba(59,130,246,0.025) 1px, transparent 1px, transparent 56px),
+      repeating-linear-gradient(90deg, rgba(59,130,246,0.025) 0px, rgba(59,130,246,0.025) 1px, transparent 1px, transparent 56px);
+    pointer-events: none;
+  }
+
+  /* ── Modal container ─────────────────────────────────────── */
+  #modalContainer {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    background: var(--m-glass-bg);
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+    border: 1px solid var(--m-border);
+    border-radius: var(--m-radius);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 2px 60px rgba(0,0,0,0.65),
+      0 0 40px var(--m-glow);
+    overflow: hidden;
+    /* GSAP controls transform/opacity */
+    will-change: transform, opacity;
+  }
+
+  /* top shine */
+  #modalContainer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%, rgba(99,202,255,0.4) 30%,
+      rgba(99,202,255,0.4) 70%, transparent 100%);
+    pointer-events: none;
+  }
+
+  /* ambient top-left glow blob */
+  #modalContainer::after {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Variant accent overrides ────────────────────────────── */
+  #modalContainer.variant-danger  { --m-border: rgba(248,113,113,0.45); --m-glow: rgba(248,113,113,0.2); --m-blue: #f87171; --m-cyan: #fca5a5; }
+  #modalContainer.variant-success { --m-border: rgba(52,211,153,0.45);  --m-glow: rgba(52,211,153,0.2);  --m-blue: #34d399; --m-cyan: #6ee7b7; }
+  #modalContainer.variant-warning { --m-border: rgba(251,191,36,0.45);  --m-glow: rgba(251,191,36,0.18); --m-blue: #fbbf24; --m-cyan: #fde68a; }
+
+  /* ── Header ─────────────────────────────────────────────── */
+  #modalHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 24px 0;
+  }
+
+  #modalIcon {
+    display: none; /* shown via setVariant */
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+  #modalIcon.shown { display: flex; }
+
+  #modalTitle {
+    flex: 1;
+    font-family: var(--m-font-d);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--m-text-1);
+    line-height: 1.25;
+    padding-top: 2px;
+    background: linear-gradient(90deg, var(--m-text-1) 40%, var(--m-cyan) 130%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Close button ────────────────────────────────────────── */
+  #modalCloseBtn {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--m-text-3);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background var(--m-tr), border-color var(--m-tr), color var(--m-tr), box-shadow var(--m-tr), transform var(--m-tr);
+    margin-top: 1px;
+  }
+  #modalCloseBtn:hover {
+    background: rgba(248,113,113,0.12);
+    border-color: rgba(248,113,113,0.35);
+    color: var(--m-danger);
+    box-shadow: 0 0 12px rgba(248,113,113,0.2);
+    transform: rotate(90deg);
+  }
+  #modalCloseBtn:active { transform: rotate(90deg) scale(0.92); }
+
+  /* ── Separator ───────────────────────────────────────────── */
+  #modalSep {
+    height: 1px;
+    margin: 20px 24px 0;
+    background: linear-gradient(90deg, transparent, var(--m-border), transparent);
+    opacity: 0.7;
+  }
+
+  /* ── Body ────────────────────────────────────────────────── */
+  #modalBody {
+    padding: 20px 24px;
+    font-family: var(--m-font-m);
+    font-size: 0.82rem;
+    color: var(--m-text-2);
+    line-height: 1.75;
+    letter-spacing: 0.02em;
+    max-height: 55vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59,130,246,0.25) transparent;
+  }
+  #modalBody::-webkit-scrollbar { width: 4px; }
+  #modalBody::-webkit-scrollbar-track { background: transparent; }
+  #modalBody::-webkit-scrollbar-thumb { background: rgba(59,130,246,0.3); border-radius: 4px; }
+
+  /* ── Footer ─────────────────────────────────────────────── */
+  #modalFooter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 0 24px 22px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Built-in button styles (usable in footerHTML) ───────── */
+  .m-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 22px;
+    border-radius: 10px;
+    font-family: var(--m-font-d);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all var(--m-tr);
+    position: relative;
+    overflow: hidden;
+  }
+  .m-btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+  }
+  .m-btn:hover::after { transform: translateX(100%); }
+
+  /* primary */
+  .m-btn-primary {
+    background: linear-gradient(135deg, rgba(59,130,246,0.22), rgba(59,130,246,0.06));
+    border-color: rgba(59,130,246,0.5);
+    color: var(--m-blue);
+  }
+  .m-btn-primary:hover {
+    border-color: var(--m-blue);
+    box-shadow: 0 0 22px var(--m-glow-strong), 0 0 50px var(--m-glow);
+    transform: translateY(-1px);
+  }
+  .m-btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.35), 0 0 22px var(--m-glow-strong);
+  }
+  .m-btn-primary:active { transform: scale(0.97); }
+
+  /* ghost / cancel */
+  .m-btn-ghost {
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.1);
+    color: var(--m-text-2);
+  }
+  .m-btn-ghost:hover {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.2);
+    color: var(--m-text-1);
+    transform: translateY(-1px);
+  }
+  .m-btn-ghost:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.1);
+  }
+  .m-btn-ghost:active { transform: scale(0.97); }
+
+  /* danger */
+  .m-btn-danger {
+    background: linear-gradient(135deg, rgba(248,113,113,0.18), rgba(248,113,113,0.04));
+    border-color: rgba(248,113,113,0.4);
+    color: var(--m-danger);
+  }
+  .m-btn-danger:hover {
+    border-color: var(--m-danger);
+    box-shadow: 0 0 22px rgba(248,113,113,0.4), 0 0 48px rgba(248,113,113,0.18);
+    transform: translateY(-1px);
+  }
+  .m-btn-danger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(248,113,113,0.3);
+  }
+  .m-btn-danger:active { transform: scale(0.97); }
+
+  /* success */
+  .m-btn-success {
+    background: linear-gradient(135deg, rgba(52,211,153,0.18), rgba(52,211,153,0.04));
+    border-color: rgba(52,211,153,0.4);
+    color: var(--m-success);
+  }
+  .m-btn-success:hover {
+    border-color: var(--m-success);
+    box-shadow: 0 0 22px rgba(52,211,153,0.35), 0 0 48px rgba(52,211,153,0.15);
+    transform: translateY(-1px);
+  }
+  .m-btn-success:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52,211,153,0.3);
+  }
+  .m-btn-success:active { transform: scale(0.97); }
+
+  /* ── Inline form styles for bodyHTML forms ───────────────── */
+  .m-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .m-field:last-child { margin-bottom: 0; }
+
+  .m-label {
+    font-family: var(--m-font-m);
+    font-size: 0.62rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--m-text-3);
+  }
+
+  .m-input {
+    width: 100%;
+    padding: 9px 13px;
+    border-radius: 9px;
+    background: rgba(59,130,246,0.04);
+    border: 1px solid rgba(59,130,246,0.18);
+    color: var(--m-text-1);
+    font-family: var(--m-font-m);
+    font-size: 0.78rem;
+    outline: none;
+    transition: border-color var(--m-tr), box-shadow var(--m-tr), background var(--m-tr);
+    letter-spacing: 0.03em;
+  }
+  .m-input::placeholder { color: var(--m-text-3); }
+  .m-input:hover { border-color: rgba(59,130,246,0.32); }
+  .m-input:focus {
+    border-color: rgba(59,130,246,0.7);
+    background: rgba(59,130,246,0.07);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.14), 0 0 18px rgba(59,130,246,0.1);
+  }
+
+  /* ── Progress bar (usable in bodyHTML) ──────────────────── */
+  .m-progress-wrap {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 9px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .m-progress-bar {
+    height: 100%;
+    border-radius: 9px;
+    background: linear-gradient(90deg, var(--m-blue), var(--m-cyan));
+    box-shadow: 0 0 10px var(--m-glow-strong);
+    transition: width 0.4s ease;
+  }
+
+  /* ── Focus ring for close button keyboard nav ────────────── */
+  #modalCloseBtn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.35);
+  }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MARKUP
+═══════════════════════════════════════════════════════════ -->
+<div
+  id="modalOverlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modalTitle"
+  aria-describedby="modalBody"
+  aria-hidden="true"
+>
+  <div id="modalContainer" tabindex="-1">
+
+    <!-- Header -->
+    <div id="modalHeader">
+      <div id="modalIcon" aria-hidden="true"></div>
+      <div id="modalTitle">Modal Title</div>
+      <button id="modalCloseBtn" aria-label="Close modal" title="Close (Esc)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Separator -->
+    <div id="modalSep" aria-hidden="true"></div>
+
+    <!-- Body -->
+    <div id="modalBody">
+      Modal content goes here.
+    </div>
+
+    <!-- Footer -->
+    <div id="modalFooter">
+      <!-- Default footer; replaced by openModal() -->
+      <button class="m-btn m-btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="m-btn m-btn-primary" onclick="closeModal()">Confirm</button>
+    </div>
+
+  </div><!-- /modalContainer -->
+</div><!-- /modalOverlay -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPT  (GSAP assumed available via parent / CDN)
+═══════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ── Element refs ──────────────────────────────────────── */
+  const overlay   = document.getElementById('modalOverlay');
+  const container = document.getElementById('modalContainer');
+  const closeBtn  = document.getElementById('modalCloseBtn');
+  const titleEl   = document.getElementById('modalTitle');
+  const bodyEl    = document.getElementById('modalBody');
+  const footerEl  = document.getElementById('modalFooter');
+  const iconEl    = document.getElementById('modalIcon');
+
+  /* ── GSAP availability guard ───────────────────────────── */
+  function hasGSAP() { return typeof gsap !== 'undefined'; }
+
+  /* ── Focus trap helpers ────────────────────────────────── */
+  const FOCUSABLE = 'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
+
+  function getFocusable() {
+    return Array.from(container.querySelectorAll(FOCUSABLE))
+      .filter(el => !el.closest('[hidden]') && getComputedStyle(el).display !== 'none');
+  }
+
+  function trapFocus(e) {
+    if (e.key !== 'Tab') return;
+    const focusable = getFocusable();
+    if (!focusable.length) { e.preventDefault(); return; }
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
+    }
+  }
+
+  /* ── Variant icons & classes ───────────────────────────── */
+  const VARIANTS = {
+    default: { icon: null,  cls: '',               iconBg: '' },
+    info:    { icon: 'ℹ️',  cls: '',               iconBg: 'rgba(59,130,246,0.15)' },
+    danger:  { icon: '⚠️',  cls: 'variant-danger', iconBg: 'rgba(248,113,113,0.12)' },
+    success: { icon: '✅',  cls: 'variant-success', iconBg: 'rgba(52,211,153,0.12)' },
+    warning: { icon: '⚡',  cls: 'variant-warning', iconBg: 'rgba(251,191,36,0.12)' },
+    confirm: { icon: '❓',  cls: '',               iconBg: 'rgba(99,202,255,0.12)' },
+  };
+
+  function applyVariant(type) {
+    const v = VARIANTS[type] || VARIANTS.default;
+    // clear old variant classes
+    Object.values(VARIANTS).forEach(vv => { if (vv.cls) container.classList.remove(vv.cls); });
+    if (v.cls) container.classList.add(v.cls);
+    if (v.icon) {
+      iconEl.textContent = v.icon;
+      iconEl.style.background = v.iconBg;
+      iconEl.classList.add('shown');
+    } else {
+      iconEl.textContent = '';
+      iconEl.classList.remove('shown');
+    }
+  }
+
+  /* ── Open animation ────────────────────────────────────── */
+  function animateIn() {
+    if (hasGSAP()) {
+      gsap.fromTo(
+        container,
+        { opacity: 0, scale: 0.88, y: 24 },
+        { opacity: 1, scale: 1,    y: 0,
+          duration: 0.32,
+          ease: 'back.out(1.5)',
+          clearProps: 'opacity,scale,y' }
+      );
+    } else {
+      // CSS fallback
+      container.style.transition = 'opacity 0.3s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1)';
+      container.style.opacity    = '0';
+      container.style.transform  = 'scale(0.88) translateY(20px)';
+      requestAnimationFrame(() => {
+        container.style.opacity   = '1';
+        container.style.transform = 'scale(1) translateY(0)';
+      });
+    }
+  }
+
+  /* ── Close animation ───────────────────────────────────── */
+  function animateOut(done) {
+    if (hasGSAP()) {
+      gsap.to(container, {
+        opacity: 0, scale: 0.9, y: 16,
+        duration: 0.22,
+        ease: 'power2.in',
+        onComplete: done
+      });
+    } else {
+      container.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
+      container.style.opacity    = '0';
+      container.style.transform  = 'scale(0.9) translateY(14px)';
+      setTimeout(done, 230);
+    }
+  }
+
+  /* ── Lock / unlock body scroll ─────────────────────────── */
+  let scrollY = 0;
+  function lockScroll()   { scrollY = window.scrollY; document.body.style.overflow = 'hidden'; }
+  function unlockScroll() { document.body.style.overflow = ''; window.scrollTo(0, scrollY); }
+
+  /* ── Previous focus (restore on close) ────────────────── */
+  let prevFocus = null;
+
+  /* ══════════════════════════════════════════════════════════
+     PUBLIC API
+  ══════════════════════════════════════════════════════════ */
+
+  /**
+   * openModal(title, bodyHTML, footerHTML, options)
+   *
+   * @param {string}  title       – Modal heading text
+   * @param {string}  bodyHTML    – Inner HTML for modal body
+   * @param {string}  footerHTML  – Inner HTML for modal footer buttons
+   * @param {object}  [options]
+   * @param {string}  [options.variant]     – 'default'|'info'|'danger'|'success'|'warning'|'confirm'
+   * @param {boolean} [options.closeable]   – Whether clicking overlay / Esc closes (default: true)
+   * @param {string}  [options.maxWidth]    – CSS max-width override (default: '520px')
+   */
+  function openModal(title, bodyHTML, footerHTML, options) {
+    const opts = Object.assign({ variant: 'default', closeable: true, maxWidth: '520px' }, options || {});
+
+    /* populate content */
+    titleEl.textContent   = title   || '';
+    bodyEl.innerHTML      = bodyHTML  || '';
+    footerEl.innerHTML    = footerHTML || defaultFooter();
+    container.style.maxWidth = opts.maxWidth;
+
+    /* variant styling */
+    applyVariant(opts.variant);
+
+    /* store closeable preference */
+    overlay._closeable = opts.closeable;
+
+    /* show overlay */
+    overlay.removeAttribute('aria-hidden');
+    overlay.classList.add('modal-visible');
+    lockScroll();
+
+    /* animate container in */
+    animateIn();
+
+    /* focus trap + keyboard */
+    prevFocus = document.activeElement;
+    document.addEventListener('keydown', handleKey);
+    container.addEventListener('keydown', trapFocus);
+
+    /* auto-focus first focusable after animation */
+    setTimeout(() => {
+      const first = getFocusable()[0];
+      if (first) first.focus();
+    }, 100);
+  }
+
+  /**
+   * closeModal()  –  Hide with animation
+   */
+  function closeModal() {
+    document.removeEventListener('keydown', handleKey);
+    container.removeEventListener('keydown', trapFocus);
+
+    animateOut(() => {
+      overlay.classList.remove('modal-visible');
+      overlay.setAttribute('aria-hidden', 'true');
+      unlockScroll();
+      /* restore focus to trigger element */
+      if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus();
+      prevFocus = null;
+      /* fire custom event for Eel integration */
+      overlay.dispatchEvent(new CustomEvent('modal:closed', { bubbles: true }));
+    });
+  }
+
+  /* ── Keyboard handler ──────────────────────────────────── */
+  function handleKey(e) {
+    if (e.key === 'Escape' && overlay._closeable !== false) {
+      e.preventDefault();
+      closeModal();
+    }
+  }
+
+  /* ── Overlay click (outside container) ────────────────── */
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay && overlay._closeable !== false) closeModal();
+  });
+
+  /* ── Close button ──────────────────────────────────────── */
+  closeBtn.addEventListener('click', closeModal);
+
+  /* ── Default footer HTML ───────────────────────────────── */
+  function defaultFooter() {
+    return `
+      <button class="m-btn m-btn-ghost"    onclick="closeModal()">Cancel</button>
+      <button class="m-btn m-btn-primary"  onclick="closeModal()">Confirm</button>`;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     CONVENIENCE VARIANTS  –  openModal.confirm(), etc.
+  ══════════════════════════════════════════════════════════ */
+
+  /**
+   * openModal.confirm(title, message, onConfirm, onCancel)
+   * Shorthand for a yes/no confirmation dialog.
+   */
+  openModal.confirm = function (title, message, onConfirm, onCancel) {
+    const body   = `<p style="color:var(--m-text-2);font-size:0.84rem;line-height:1.75;">${message}</p>`;
+    const footer = `
+      <button class="m-btn m-btn-ghost" id="_mc_cancel">Cancel</button>
+      <button class="m-btn m-btn-danger" id="_mc_confirm">Confirm</button>`;
+    openModal(title, body, footer, { variant: 'confirm', closeable: true });
+
+    setTimeout(() => {
+      const confirmBtn = document.getElementById('_mc_confirm');
+      const cancelBtn  = document.getElementById('_mc_cancel');
+      if (confirmBtn) confirmBtn.addEventListener('click', () => { closeModal(); if (onConfirm) onConfirm(); });
+      if (cancelBtn)  cancelBtn.addEventListener('click',  () => { closeModal(); if (onCancel)  onCancel();  });
+    }, 50);
+  };
+
+  /**
+   * openModal.alert(title, message, type)
+   * Shorthand for a simple alert/notification modal.
+   * type: 'info' | 'success' | 'warning' | 'danger'
+   */
+  openModal.alert = function (title, message, type) {
+    type = type || 'info';
+    const colorMap = { info: 'var(--m-blue)', success: '#34d399', warning: '#fbbf24', danger: '#f87171' };
+    const body   = `<p style="color:var(--m-text-2);font-size:0.84rem;line-height:1.75;">${message}</p>`;
+    const footer = `<button class="m-btn m-btn-primary" onclick="closeModal()">OK</button>`;
+    openModal(title, body, footer, { variant: type, closeable: true });
+  };
+
+  /**
+   * openModal.form(title, fieldsHTML, onSubmit)
+   * Shorthand for form modals. onSubmit receives a plain data object.
+   */
+  openModal.form = function (title, fieldsHTML, onSubmit) {
+    const body   = `<div id="_mf_fields">${fieldsHTML}</div>`;
+    const footer = `
+      <button class="m-btn m-btn-ghost" id="_mf_cancel">Cancel</button>
+      <button class="m-btn m-btn-success" id="_mf_submit">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Save
+      </button>`;
+    openModal(title, body, footer, { variant: 'default', closeable: false });
+
+    setTimeout(() => {
+      const submitBtn = document.getElementById('_mf_submit');
+      const cancelBtn = document.getElementById('_mf_cancel');
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      if (submitBtn && onSubmit) {
+        submitBtn.addEventListener('click', () => {
+          const inputs = bodyEl.querySelectorAll('input,select,textarea');
+          const data   = {};
+          inputs.forEach(inp => { if (inp.id || inp.name) data[inp.id || inp.name] = inp.value; });
+          onSubmit(data);
+        });
+      }
+    }, 50);
+  };
+
+  /* ── Expose to global scope for Eel / other pages ──────── */
+  window.openModal  = openModal;
+  window.closeModal = closeModal;
+
+  /* ── Eel-friendly helper: receive Python-triggered modals ─ */
+  window.eelModal = {
+    confirm: openModal.confirm,
+    alert:   openModal.alert,
+    form:    openModal.form,
+    open:    openModal,
+    close:   closeModal,
+  };
+
+})();
+</script>
